@@ -1,0 +1,1002 @@
+{
+	"compiler": {
+		"version": "0.8.30+commit.73712a01"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "admin",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "bool",
+						"name": "isAdmin",
+						"type": "bool"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					}
+				],
+				"name": "AdminUpdated",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "approved",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "tokenId",
+						"type": "uint256"
+					}
+				],
+				"name": "Approval",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "operator",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "bool",
+						"name": "approved",
+						"type": "bool"
+					}
+				],
+				"name": "ApprovalForAll",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "tokenId",
+						"type": "uint256"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "from",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "string",
+						"name": "transferType",
+						"type": "string"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					}
+				],
+				"name": "OwnershipTransferred",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "tokenId",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "string",
+						"name": "uuid",
+						"type": "string"
+					},
+					{
+						"indexed": false,
+						"internalType": "string",
+						"name": "metadataHash",
+						"type": "string"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "mintedBy",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					}
+				],
+				"name": "ProductMinted",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "tokenId",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "string",
+						"name": "uuid",
+						"type": "string"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "verifiedBy",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					}
+				],
+				"name": "ProductVerified",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "from",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "tokenId",
+						"type": "uint256"
+					}
+				],
+				"name": "Transfer",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_admin",
+						"type": "address"
+					}
+				],
+				"name": "addAdmin",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "admins",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "tokenId",
+						"type": "uint256"
+					}
+				],
+				"name": "approve",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					}
+				],
+				"name": "balanceOf",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_tokenId",
+						"type": "uint256"
+					}
+				],
+				"name": "claimProduct",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "contractOwner",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getAdmins",
+				"outputs": [
+					{
+						"internalType": "address[]",
+						"name": "",
+						"type": "address[]"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "tokenId",
+						"type": "uint256"
+					}
+				],
+				"name": "getApproved",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_tokenId",
+						"type": "uint256"
+					}
+				],
+				"name": "getOwnershipHistory",
+				"outputs": [
+					{
+						"components": [
+							{
+								"internalType": "address",
+								"name": "owner",
+								"type": "address"
+							},
+							{
+								"internalType": "uint256",
+								"name": "timestamp",
+								"type": "uint256"
+							},
+							{
+								"internalType": "string",
+								"name": "transferType",
+								"type": "string"
+							}
+						],
+						"internalType": "struct LuxchainNFT.OwnershipRecord[]",
+						"name": "",
+						"type": "tuple[]"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_tokenId",
+						"type": "uint256"
+					}
+				],
+				"name": "getProduct",
+				"outputs": [
+					{
+						"internalType": "string",
+						"name": "uuid",
+						"type": "string"
+					},
+					{
+						"internalType": "string",
+						"name": "metadataHash",
+						"type": "string"
+					},
+					{
+						"internalType": "address",
+						"name": "currentOwner",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "mintedBy",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "mintedAt",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "string",
+						"name": "_uuid",
+						"type": "string"
+					}
+				],
+				"name": "getProductByUUID",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "tokenId",
+						"type": "uint256"
+					},
+					{
+						"internalType": "string",
+						"name": "metadataHash",
+						"type": "string"
+					},
+					{
+						"internalType": "address",
+						"name": "currentOwner",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "mintedBy",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "mintedAt",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_tokenId",
+						"type": "uint256"
+					}
+				],
+				"name": "getTransferCount",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_addr",
+						"type": "address"
+					}
+				],
+				"name": "isAdmin",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "operator",
+						"type": "address"
+					}
+				],
+				"name": "isApprovedForAll",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "string",
+						"name": "_uuid",
+						"type": "string"
+					},
+					{
+						"internalType": "string",
+						"name": "_metadataHash",
+						"type": "string"
+					}
+				],
+				"name": "mintToBlockchain",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "name",
+				"outputs": [
+					{
+						"internalType": "string",
+						"name": "",
+						"type": "string"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "tokenId",
+						"type": "uint256"
+					}
+				],
+				"name": "ownerOf",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_admin",
+						"type": "address"
+					}
+				],
+				"name": "removeAdmin",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "from",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "tokenId",
+						"type": "uint256"
+					}
+				],
+				"name": "safeTransferFrom",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "from",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "tokenId",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "data",
+						"type": "bytes"
+					}
+				],
+				"name": "safeTransferFrom",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "operator",
+						"type": "address"
+					},
+					{
+						"internalType": "bool",
+						"name": "approved",
+						"type": "bool"
+					}
+				],
+				"name": "setApprovalForAll",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes4",
+						"name": "interfaceId",
+						"type": "bytes4"
+					}
+				],
+				"name": "supportsInterface",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "pure",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "symbol",
+				"outputs": [
+					{
+						"internalType": "string",
+						"name": "",
+						"type": "string"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "totalSupply",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "from",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "tokenId",
+						"type": "uint256"
+					}
+				],
+				"name": "transferFrom",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_tokenId",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "_to",
+						"type": "address"
+					}
+				],
+				"name": "transferProduct",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_tokenId",
+						"type": "uint256"
+					}
+				],
+				"name": "verifyProduct",
+				"outputs": [
+					{
+						"internalType": "string",
+						"name": "uuid",
+						"type": "string"
+					},
+					{
+						"internalType": "string",
+						"name": "metadataHash",
+						"type": "string"
+					},
+					{
+						"internalType": "address",
+						"name": "currentOwner",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "mintedBy",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "mintedAt",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {
+				"addAdmin(address)": {
+					"params": {
+						"_admin": "Address to grant admin role"
+					}
+				},
+				"claimProduct(uint256)": {
+					"details": "Called when consumer scans QR and claims the product      Different from transfer — this is the initial claim from brand to consumer",
+					"params": {
+						"_tokenId": "Token ID to claim"
+					},
+					"returns": {
+						"_0": "success  True if claim succeeded"
+					}
+				},
+				"getAdmins()": {
+					"returns": {
+						"_0": "Array of admin wallet addresses"
+					}
+				},
+				"getOwnershipHistory(uint256)": {
+					"params": {
+						"_tokenId": "Token ID to query"
+					},
+					"returns": {
+						"_0": "Array of OwnershipRecord (owner, timestamp, type)"
+					}
+				},
+				"getProduct(uint256)": {
+					"params": {
+						"_tokenId": "Token ID"
+					},
+					"returns": {
+						"currentOwner": "Current owner address",
+						"metadataHash": "SHA-256 hash of the product metadata",
+						"mintedAt": "Timestamp when the product was minted",
+						"mintedBy": "Admin address that minted the product",
+						"uuid": "Product UUID"
+					}
+				},
+				"getProductByUUID(string)": {
+					"params": {
+						"_uuid": "Product UUID"
+					},
+					"returns": {
+						"currentOwner": "Current owner address",
+						"metadataHash": "SHA-256 hash",
+						"mintedAt": "    Mint timestamp",
+						"mintedBy": "    Admin minter address",
+						"tokenId": "     Token ID"
+					}
+				},
+				"getTransferCount(uint256)": {
+					"params": {
+						"_tokenId": "Token ID"
+					},
+					"returns": {
+						"_0": "Number of ownership changes"
+					}
+				},
+				"isAdmin(address)": {
+					"params": {
+						"_addr": "Address to check"
+					},
+					"returns": {
+						"_0": "True if address is admin"
+					}
+				},
+				"mintToBlockchain(string,string)": {
+					"details": "Called by API server after admin signs via MetaMask      Flow: Admin Form → API generates UUID + SHA-256 hash → MetaMask sign → this function",
+					"params": {
+						"_metadataHash": "SHA-256 hash dari metadata produk (nama+brand+SKU+warna+material+tahun+UUID)",
+						"_uuid": "UUID v4 dari ProductItem (generated off-chain)"
+					},
+					"returns": {
+						"_0": "tokenId     Auto-incremented token ID yang di-assign ke NFT"
+					}
+				},
+				"removeAdmin(address)": {
+					"params": {
+						"_admin": "Address to revoke admin role"
+					}
+				},
+				"totalSupply()": {
+					"returns": {
+						"_0": "Total token count"
+					}
+				},
+				"transferProduct(uint256,address)": {
+					"details": "Called when consumer transfers NFT (preloved/resale)      Consumer signs via MetaMask → Smart Contract executes transfer",
+					"params": {
+						"_to": "New owner address",
+						"_tokenId": "Token ID to transfer"
+					},
+					"returns": {
+						"_0": "success  True if transfer succeeded"
+					}
+				},
+				"verifyProduct(uint256)": {
+					"details": "Read-only function called during QR scan verification flow      The API server recomputes the hash from MySQL metadata and compares",
+					"params": {
+						"_tokenId": "Token ID to verify"
+					},
+					"returns": {
+						"currentOwner": "Current owner address of the NFT",
+						"metadataHash": "SHA-256 hash stored on-chain",
+						"mintedAt": "    Timestamp when the product was minted",
+						"mintedBy": "    Admin who originally minted this product",
+						"uuid": "        UUID of the product"
+					}
+				}
+			},
+			"version": 1
+		},
+		"userdoc": {
+			"events": {
+				"AdminUpdated(address,bool,uint256)": {
+					"notice": "Emitted when an admin is added or removed"
+				},
+				"OwnershipTransferred(uint256,address,address,string,uint256)": {
+					"notice": "Emitted when product ownership is transferred"
+				},
+				"ProductMinted(uint256,string,string,address,uint256)": {
+					"notice": "Emitted when a new product is minted to blockchain"
+				},
+				"ProductVerified(uint256,string,address,uint256)": {
+					"notice": "Emitted when a product is verified"
+				}
+			},
+			"kind": "user",
+			"methods": {
+				"addAdmin(address)": {
+					"notice": "Add a new admin wallet address"
+				},
+				"claimProduct(uint256)": {
+					"notice": "Claim ownership of a product (first buyer claiming from admin/brand)"
+				},
+				"constructor": {
+					"notice": "Deploy contract — deployer becomes contract owner & first admin"
+				},
+				"getAdmins()": {
+					"notice": "Get list of all admin addresses"
+				},
+				"getOwnershipHistory(uint256)": {
+					"notice": "Get full ownership history for a token"
+				},
+				"getProduct(uint256)": {
+					"notice": "Get product record by token ID"
+				},
+				"getProductByUUID(string)": {
+					"notice": "Get product details by UUID (used in QR verification flow)"
+				},
+				"getTransferCount(uint256)": {
+					"notice": "Get the number of transfers for a specific token"
+				},
+				"isAdmin(address)": {
+					"notice": "Check if an address is admin"
+				},
+				"mintToBlockchain(string,string)": {
+					"notice": "Mint a new product NFT to blockchain (admin only)"
+				},
+				"removeAdmin(address)": {
+					"notice": "Remove an admin wallet address"
+				},
+				"totalSupply()": {
+					"notice": "Get total number of minted products"
+				},
+				"transferProduct(uint256,address)": {
+					"notice": "Transfer product ownership to a new address"
+				},
+				"verifyProduct(uint256)": {
+					"notice": "Verify a product's authenticity by comparing on-chain hash"
+				}
+			},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/LuxchainNFT.sol": "LuxchainNFT"
+		},
+		"evmVersion": "prague",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/LuxchainNFT.sol": {
+			"keccak256": "0x021d4cdc56f8f98ff19b5c9ed5ecadaedb7b90a51ea7293c6c78f37d114cdfe6",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://a79114123fc707de7a997448a96c3ac5e97a3329bf5579e7d7b3c2a901f9b24b",
+				"dweb:/ipfs/QmWAfAcjjisPxpgDKpXE5Pbp44bxc6WVEdGTV1v3uGg4Lu"
+			]
+		}
+	},
+	"version": 1
+}

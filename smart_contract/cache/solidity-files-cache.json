@@ -1,0 +1,190 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "C:\\KULIAH\\semester_6\\pui\\luxchain\\smart_contract\\contracts\\1_Storage.sol": {
+      "lastModificationDate": 1775878087640,
+      "contentHash": "f6561435dff3ad60c78a9644c9a02f7e",
+      "sourceName": "contracts/1_Storage.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.8.2 <0.9.0"
+      ],
+      "artifacts": [
+        "Storage"
+      ]
+    },
+    "C:\\KULIAH\\semester_6\\pui\\luxchain\\smart_contract\\contracts\\2_Owner.sol": {
+      "lastModificationDate": 1775878087641,
+      "contentHash": "e0e15bef5a2c3aca78141bcc53fe7e2f",
+      "sourceName": "contracts/2_Owner.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "hardhat/console.sol"
+      ],
+      "versionPragmas": [
+        ">=0.7.0 <0.9.0"
+      ],
+      "artifacts": [
+        "Owner"
+      ]
+    },
+    "C:\\KULIAH\\semester_6\\pui\\luxchain\\smart_contract\\node_modules\\hardhat\\console.sol": {
+      "lastModificationDate": 1779067104680,
+      "contentHash": "681c532e816169606d13a5fe8b475074",
+      "sourceName": "hardhat/console.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.4.22 <0.9.0"
+      ],
+      "artifacts": [
+        "console"
+      ]
+    },
+    "C:\\KULIAH\\semester_6\\pui\\luxchain\\smart_contract\\contracts\\3_Ballot.sol": {
+      "lastModificationDate": 1775878087643,
+      "contentHash": "f15d83fb77a0dcca967e19006c9622c7",
+      "sourceName": "contracts/3_Ballot.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.7.0 <0.9.0"
+      ],
+      "artifacts": [
+        "Ballot"
+      ]
+    },
+    "C:\\KULIAH\\semester_6\\pui\\luxchain\\smart_contract\\contracts\\LuxchainNFT.sol": {
+      "lastModificationDate": 1779171991251,
+      "contentHash": "13ad9c1f0985fb7c6e73d752c178dfb8",
+      "sourceName": "contracts/LuxchainNFT.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IERC165",
+        "IERC721",
+        "IERC721Receiver",
+        "LuxchainNFT"
+      ]
+    }
+  }
+}

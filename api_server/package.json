@@ -1,0 +1,29 @@
+{
+  "name": "luxchain-api-server",
+  "version": "1.0.0",
+  "description": "Luxchain REST API — Hybrid Blockchain Luxury Fashion Verification",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "db:init": "node database/init.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Raja",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "canvas": "^3.2.3",
+    "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^16.5.0",
+    "ethers": "^6.14.3",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.1",
+    "multer": "^1.4.5-lts.2",
+    "mysql2": "^3.14.1",
+    "qrcode": "^1.5.4",
+    "uuid": "^11.1.0"
+  }
+}
