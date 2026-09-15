@@ -249,45 +249,51 @@ export default function CustomersPage() {
             Belum ada customer yang terdaftar.
           </div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "14px" }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--secondary)" }}>
-                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>WALLET</th>
-                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>NAMA</th>
-                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>TOTAL ASET</th>
-                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>TOTAL TX</th>
-                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>BERGABUNG</th>
-              </tr>
-            </thead>
-            <tbody>
-              {customers.map((c: any) => (
-                <tr key={c.wallet_address} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "16px 20px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                      <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--sidebar-accent)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--foreground)", fontWeight: 600, fontSize: "12px" }}>
-                        {c.wallet_address.substring(2, 4).toUpperCase()}
-                      </div>
-                      <CopyableText 
-                        text={c.wallet_address} 
-                        truncateText={truncateAddress(c.wallet_address)} 
-                        style={{ color: "var(--foreground)" }} 
-                      />
-                    </div>
-                  </td>
-                  <td style={{ padding: "16px 20px", color: "var(--foreground)" }}>{c.nama_display || "-"}</td>
-                  <td style={{ padding: "16px 20px", color: "var(--foreground)", fontWeight: 500 }}>
-                    <span style={{ background: "var(--lc-success-bg)", color: "var(--lc-success)", padding: "4px 10px", borderRadius: "20px", fontSize: "12px" }}>
-                      {c.active_items} Produk
-                    </span>
-                  </td>
-                  <td style={{ padding: "16px 20px", color: "var(--muted-foreground)" }}>{c.total_transactions}</td>
-                  <td style={{ padding: "16px 20px", color: "var(--muted-foreground)", fontSize: "13px" }}>
-                    {formatDate(c.join_date)}
-                  </td>
+          <div className="table-responsive-container" style={{ overflowX: "auto", width: "100%" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "14px", minWidth: "600px" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--secondary)" }}>
+                  <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>WALLET</th>
+                  <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>NAMA</th>
+                  <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>TOTAL ASET</th>
+                  <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>TOTAL TX</th>
+                  <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>BERGABUNG</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {customers.map((c: any) => (
+                  <tr key={c.wallet_address} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <td style={{ padding: "16px 20px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--sidebar-accent)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--foreground)", fontWeight: 600, fontSize: "12px" }}>
+                          {c.wallet_address.substring(2, 4).toUpperCase()}
+                        </div>
+                        <CopyableText 
+                          text={c.wallet_address} 
+                          truncateText={truncateAddress(c.wallet_address)} 
+                          style={{ color: "var(--foreground)" }} 
+                        />
+                      </div>
+                    </td>
+                    <td style={{ padding: "16px 20px", color: "var(--foreground)" }}>{c.nama_display || "-"}</td>
+                    <td style={{ padding: "16px 20px", color: "var(--foreground)", fontWeight: 500 }}>
+                      <span style={{ background: "var(--lc-success-bg)", color: "var(--lc-success)", padding: "4px 10px", borderRadius: "20px", fontSize: "12px" }}>
+                        {c.active_items} Produk
+                      </span>
+                    </td>
+                    <td style={{ padding: "16px 20px", color: "var(--foreground)", fontWeight: 500 }}>
+                      <span style={{ background: "var(--lc-info-bg)", color: "var(--lc-info)", padding: "4px 10px", borderRadius: "20px", fontSize: "12px" }}>
+                        {c.total_tx} Tx
+                      </span>
+                    </td>
+                    <td style={{ padding: "16px 20px", color: "var(--muted-foreground)", fontSize: "13px" }}>
+                      {formatDate(c.join_date)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

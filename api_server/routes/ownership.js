@@ -319,9 +319,9 @@ router.get('/:wallet', async (req, res, next) => {
         status_kepemilikan: 'active',
       },
       include: {
-        item: {
+        product_item: {
           include: {
-            produk: true,
+            produk_master: true,
           },
         },
       },
@@ -332,14 +332,14 @@ router.get('/:wallet', async (req, res, next) => {
 
     const active = activeRecords.map(kp => ({
       ...kp,
-      hash_blockchain: kp.item?.hash_blockchain || '',
-      item_status: kp.item?.status || '',
-      nama_produk: kp.item?.produk?.nama_produk || '',
-      harga: kp.item?.produk?.harga || 0,
-      warna: kp.item?.produk?.warna || '',
-      tipe_artikel: kp.item?.produk?.tipe_artikel || '',
-      tanggal_produksi: kp.item?.produk?.tanggal_produksi || '',
-      gambar_url: kp.item?.produk?.gambar_url || null,
+      hash_blockchain: kp.product_item?.hash_blockchain || '',
+      item_status: kp.product_item?.status || '',
+      nama_produk: kp.product_item?.produk_master?.nama_produk || '',
+      harga: kp.product_item?.produk_master?.harga || 0,
+      warna: kp.product_item?.produk_master?.warna || '',
+      tipe_artikel: kp.product_item?.produk_master?.tipe_artikel || '',
+      tanggal_produksi: kp.product_item?.produk_master?.tanggal_produksi || '',
+      gambar_url: kp.product_item?.produk_master?.gambar_url || null,
     }));
 
     // Get transfer history (previous ownership)
@@ -349,9 +349,9 @@ router.get('/:wallet', async (req, res, next) => {
         status_kepemilikan: 'transferred',
       },
       include: {
-        item: {
+        product_item: {
           include: {
-            produk: true,
+            produk_master: true,
           },
         },
       },
@@ -362,10 +362,10 @@ router.get('/:wallet', async (req, res, next) => {
 
     const history = historyRecords.map(kp => ({
       ...kp,
-      hash_blockchain: kp.item?.hash_blockchain || '',
-      nama_produk: kp.item?.produk?.nama_produk || '',
-      tipe_artikel: kp.item?.produk?.tipe_artikel || '',
-      gambar_url: kp.item?.produk?.gambar_url || null,
+      hash_blockchain: kp.product_item?.hash_blockchain || '',
+      nama_produk: kp.product_item?.produk_master?.nama_produk || '',
+      tipe_artikel: kp.product_item?.produk_master?.tipe_artikel || '',
+      gambar_url: kp.product_item?.produk_master?.gambar_url || null,
     }));
 
     // Get consumer profile

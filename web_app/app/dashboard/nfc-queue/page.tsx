@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { getWaitingNfcQueue, bindNfcItem } from "@/lib/api";
+import { getWaitingNfcQueue, bindNfcItem, getMediaUrl } from "@/lib/api";
 import CopyableText from "@/components/CopyableText";
 
 export default function NfcQueuePage() {
@@ -283,7 +283,7 @@ export default function NfcQueuePage() {
             </svg>
             Kembali ke Product Items
           </button>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
             <h1 style={{ fontSize: "24px", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.5px" }}>
               Stasiun Antrean Web NFC
             </h1>
@@ -432,9 +432,9 @@ export default function NfcQueuePage() {
         </div>
       ) : (
         /* Main Active Queue Interactive View */
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "20px" }}>
+        <div className="grid-responsive-queue" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "20px" }}>
           {/* Active Tap Panel */}
-          <div style={{
+          <div className="mobile-p-sm" style={{
             background: "var(--card)", border: "1px solid var(--border)",
             borderRadius: "var(--radius-lg)", padding: "28px", display: "flex", flexDirection: "column"
           }}>
@@ -525,12 +525,16 @@ export default function NfcQueuePage() {
               <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
                 {currentItem.gambar_url ? (
                   <img
-                    src={`${API_BASE}${currentItem.gambar_url}`}
+                    src={getMediaUrl(currentItem.gambar_url)}
                     alt={currentItem.nama_produk}
-                    style={{ width: "64px", height: "64px", objectFit: "cover", borderRadius: "8px" }}
+                    style={{
+                      width: "64px",
+                      height: "64px",
+                      objectFit: "cover",
+                      borderRadius: "calc(var(--radius) - 2px)",
+                    }}
                   />
-                ) : (
-                  <div style={{ width: "64px", height: "64px", background: "var(--muted)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px" }}>
+                ) : (<div style={{ width: "64px", height: "64px", background: "var(--muted)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px" }}>
                     🏷️
                   </div>
                 )}
@@ -547,7 +551,7 @@ export default function NfcQueuePage() {
                 </div>
               </div>
 
-              <div style={{ borderTop: "1px solid var(--border)", marginTop: "14px", paddingTop: "12px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "12px" }}>
+              <div className="grid-responsive-2" style={{ borderTop: "1px solid var(--border)", marginTop: "14px", paddingTop: "12px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "12px" }}>
                 <div>
                   <span style={{ color: "var(--muted-foreground)" }}>UUID Item:</span>
                   <div style={{ fontFamily: "monospace", color: "var(--foreground)", marginTop: "2px" }}>
@@ -564,7 +568,7 @@ export default function NfcQueuePage() {
             </div>
 
             {/* Controls */}
-            <div style={{ display: "flex", gap: "10px", marginTop: "auto" }}>
+            <div className="mobile-stack" style={{ display: "flex", gap: "10px", marginTop: "auto" }}>
               {isNfcSupported ? (
                 !isScanningActive ? (
                   <button

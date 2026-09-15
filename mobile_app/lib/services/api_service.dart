@@ -10,17 +10,20 @@ class ApiService {
   // - Web / Windows Desktop / Other: localhost:3001
   static String get _baseUrl {
     if (kIsWeb) {
-      return 'http://localhost:3001/api';
+      // return 'http://localhost:3001/api';
+      return 'https://luxchain.onrender.com/api';
     }
     try {
       if (Platform.isAndroid) {
         // return 'http://192.168.18.244:3001/api';
         // return 'http://192.168.137.1:3001/api';
-        return 'http://172.20.10.2:3001/api';
+        // return 'http://172.20.10.2:3001/api';
         // return 'http://10.0.2.2:3001/api';
+        return 'https://luxchain.onrender.com/api';
       }
     } catch (_) {}
-    return 'http://localhost:3001/api';
+    // return 'http://localhost:3001/api';
+    return 'https://luxchain.onrender.com/api';
   }
 
   static final ApiService _instance = ApiService._internal();

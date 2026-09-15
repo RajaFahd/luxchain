@@ -35,8 +35,8 @@ router.get('/', authMiddleware, async (req, res, next) => {
         { wallet_address: { contains: search, mode: 'insensitive' } },
         { tx_hash: { contains: search, mode: 'insensitive' } },
         {
-          item: {
-            produk: {
+          product_item: {
+            produk_master: {
               OR: [
                 { nama_produk: { contains: search, mode: 'insensitive' } },
                 { tipe_artikel: { contains: search, mode: 'insensitive' } },
@@ -56,9 +56,9 @@ router.get('/', authMiddleware, async (req, res, next) => {
       prisma.kepemilikan.findMany({
         where,
         include: {
-          item: {
+          product_item: {
             include: {
-              produk: true,
+              produk_master: true,
             },
           },
           konsumen: true,
@@ -80,10 +80,10 @@ router.get('/', authMiddleware, async (req, res, next) => {
       status_kepemilikan: kp.status_kepemilikan,
       tx_hash: kp.tx_hash,
       created_at: kp.created_at,
-      hash_blockchain: kp.item?.hash_blockchain || '',
-      item_status: kp.item?.status || '',
-      nama_produk: kp.item?.produk?.nama_produk || '',
-      tipe_artikel: kp.item?.produk?.tipe_artikel || '',
+      hash_blockchain: kp.product_item?.hash_blockchain || '',
+      item_status: kp.product_item?.status || '',
+      nama_produk: kp.product_item?.produk_master?.nama_produk || '',
+      tipe_artikel: kp.product_item?.produk_master?.tipe_artikel || '',
       nama_display: kp.konsumen?.nama_display || '',
     }));
 

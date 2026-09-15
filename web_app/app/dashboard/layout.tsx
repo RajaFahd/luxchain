@@ -95,6 +95,26 @@ export default function DashboardLayout({
   const [dark, setDark] = useState(false);
   const [isAuthed, setIsAuthed] = useState(false);
   const [adminData, setAdminData] = useState<{ email: string; wallet_address: string } | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setMobileOpen(false);
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   // Auth guard
   useEffect(() => {
@@ -297,10 +317,25 @@ export default function DashboardLayout({
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--background)" }}>
+      {/* Backdrop for mobile drawer */}
+      {mobileOpen && (
+        <div
+          onClick={() => setMobileOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.6)",
+            backdropFilter: "blur(2px)",
+            zIndex: 75,
+          }}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
+        className={`dashboard-sidebar ${mobileOpen ? "sidebar-open" : ""}`}
         style={{
-          width: collapsed ? "64px" : "240px",
+          width: isMobile ? undefined : (collapsed ? "64px" : "240px"),
           background: "var(--sidebar)",
           borderRight: "1px solid var(--sidebar-border)",
           display: "flex",
@@ -310,7 +345,7 @@ export default function DashboardLayout({
           top: 0,
           left: 0,
           bottom: 0,
-          zIndex: 50,
+          zIndex: 100,
           overflow: "hidden",
         }}
       >
@@ -353,17 +388,40 @@ export default function DashboardLayout({
               LUXCHAIN
             </span>
           )}
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="show-on-mobile"
+            style={{
+              marginLeft: "auto",
+              background: "transparent",
+              border: "none",
+              color: "var(--muted-foreground)",
+              cursor: "pointer",
+              padding: "6px",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            aria-label="Tutup menu"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
 
         {/* Nav */}
-        <nav style={{ flex: 1, padding: "12px 8px" }}>
+        <nav style={{ flex: 1, padding: "12px 8px", overflowY: "auto" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
             {navItems.map((item) => {
               const active = isActive(item.href);
               return (
                 <button
                   key={item.href}
-                  onClick={() => router.push(item.href)}
+                  onClick={() => {
+                    router.push(item.href);
+                    setMobileOpen(false);
+                  }}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -402,78 +460,164 @@ export default function DashboardLayout({
           </div>
         </nav>
 
-        {/* Collapse btn */}
-        <div style={{ padding: "12px 8px", borderTop: "1px solid var(--sidebar-border)" }}>
+        {/* Mobile Sidebar Footer: User & Wallet info + Logout */}
+        <div className="show-on-mobile" style={{ padding: "14px 12px", borderTop: "1px solid var(--sidebar-border)", flexDirection: "column", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 600, color: "var(--primary-foreground)", flexShrink: 0 }}>
+              {adminData?.email?.charAt(0).toUpperCase() || "A"}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {adminData?.email || "Admin"}
+              </p>
+              <p style={{ fontSize: "11px", color: "var(--muted-foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {walletAddress ? truncateAddress(walletAddress) : "Wallet not connected"}
+              </p>
+            </div>
+          </div>
           <button
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={handleLogout}
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: collapsed ? "center" : "flex-start",
-              gap: "10px",
-              padding: "9px 12px",
-              width: "100%",
-              border: "none",
+              justifyContent: "center",
+              gap: "8px",
+              padding: "8px 12px",
               borderRadius: "calc(var(--radius) - 2px)",
+              border: "1px solid var(--border)",
               background: "transparent",
-              color: "var(--muted-foreground)",
+              color: "var(--destructive)",
+              fontSize: "12px",
+              fontWeight: 500,
               cursor: "pointer",
-              fontSize: "13px",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--sidebar-accent)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
+              width: "100%",
+              marginTop: "4px",
             }}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              style={{
-                transform: collapsed ? "rotate(180deg)" : "none",
-                transition: "transform 0.2s ease",
-              }}
-            >
-              <polyline points="11 17 6 12 11 7" />
-              <polyline points="18 17 13 12 18 7" />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
-            {!collapsed && "Collapse"}
+            Keluar (Logout)
           </button>
         </div>
+
+        {/* Collapse btn (desktop only) */}
+        <div className="hide-on-mobile" style={{ padding: "12px 8px", borderTop: "1px solid var(--sidebar-border)" }}>
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: collapsed ? "center" : "flex-start",
+                gap: "10px",
+                padding: "9px 12px",
+                width: "100%",
+                border: "none",
+                borderRadius: "calc(var(--radius) - 2px)",
+                background: "transparent",
+                color: "var(--muted-foreground)",
+                cursor: "pointer",
+                fontSize: "13px",
+                transition: "all 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--sidebar-accent)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                style={{
+                  transform: collapsed ? "rotate(180deg)" : "none",
+                  transition: "transform 0.2s ease",
+                }}
+              >
+                <polyline points="11 17 6 12 11 7" />
+                <polyline points="18 17 13 12 18 7" />
+              </svg>
+              {!collapsed && "Collapse"}
+            </button>
+          </div>
       </aside>
 
       {/* Main */}
       <div
+        className="dashboard-main"
         style={{
           flex: 1,
-          marginLeft: collapsed ? "64px" : "240px",
+          marginLeft: isMobile ? 0 : (collapsed ? "64px" : "240px"),
           transition: "margin-left 0.2s ease",
           display: "flex",
           flexDirection: "column",
+          minWidth: 0,
+          maxWidth: "100%",
+          overflowX: "hidden",
         }}
       >
         {/* Top bar */}
         <header
+          className="dashboard-header"
           style={{
             height: "56px",
             background: "var(--background)",
             borderBottom: "1px solid var(--border)",
             display: "flex",
             alignItems: "center",
-            justifyContent: "flex-end",
-            padding: "0 24px",
+            justifyContent: "space-between",
+            padding: isMobile ? "0 12px" : "0 24px",
             position: "sticky",
             top: 0,
             zIndex: 40,
+            maxWidth: "100%",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {/* Mobile hamburger button */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <button
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className="show-on-mobile"
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "calc(var(--radius) - 2px)",
+                border: "1px solid var(--border)",
+                background: "var(--card)",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "var(--foreground)",
+              }}
+              aria-label="Toggle navigation menu"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+            <span
+              className="show-on-mobile brand-title"
+              style={{
+                fontSize: "14px",
+                fontWeight: 600,
+                color: "var(--foreground)",
+                letterSpacing: "1px",
+              }}
+            >
+              LUXCHAIN
+            </span>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             {/* Theme toggle */}
             <button
               onClick={toggleTheme}
@@ -528,7 +672,7 @@ export default function DashboardLayout({
                     display: "flex",
                     alignItems: "center",
                     gap: "6px",
-                    padding: "5px 12px",
+                    padding: "5px 10px",
                     borderRadius: "calc(var(--radius) - 2px)",
                     border: "1px solid var(--lc-success)",
                     background: "var(--lc-success-bg)",
@@ -538,6 +682,7 @@ export default function DashboardLayout({
                     cursor: "pointer",
                     transition: "all 0.15s",
                     fontFamily: "var(--font-roboto-mono), monospace",
+                    maxWidth: "135px",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "rgba(224,92,92,0.08)";
@@ -551,13 +696,14 @@ export default function DashboardLayout({
                   }}
                   title={`Connected: ${walletAddress}\nClick to disconnect`}
                 >
-                  {/* MetaMask fox icon */}
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                     <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
                     <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
                     <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
                   </svg>
-                  {truncateAddress(walletAddress)}
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {truncateAddress(walletAddress)}
+                  </span>
                 </button>
               </div>
             ) : (
@@ -568,7 +714,7 @@ export default function DashboardLayout({
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
-                  padding: "5px 12px",
+                  padding: "5px 10px",
                   borderRadius: "calc(var(--radius) - 2px)",
                   border: "1px solid var(--border)",
                   background: "transparent",
@@ -577,6 +723,7 @@ export default function DashboardLayout({
                   fontWeight: 500,
                   cursor: walletConnecting ? "wait" : "pointer",
                   transition: "all 0.15s",
+                  whiteSpace: "nowrap",
                 }}
                 onMouseEnter={(e) => {
                   if (!walletConnecting) {
@@ -593,26 +740,27 @@ export default function DashboardLayout({
                 title={walletError || "Connect MetaMask wallet"}
               >
                 {walletConnecting ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite", flexShrink: 0 }}>
                     <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                   </svg>
                 ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                     <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
                     <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
                     <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
                   </svg>
                 )}
-                {walletConnecting ? "Connecting..." : walletError || "Connect Wallet"}
+                <span>{walletConnecting ? "Connecting..." : walletError || <><span className="wallet-label">Connect </span>Wallet</>}</span>
               </button>
             )}
 
             {/* Divider */}
-            <div style={{ width: "1px", height: "24px", background: "var(--border)" }} />
+            <div className="hide-on-mobile" style={{ width: "1px", height: "24px", background: "var(--border)" }} />
 
             {/* Avatar + Logout */}
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <div
+                className="hide-on-mobile"
                 style={{
                   width: "30px",
                   height: "30px",
@@ -628,7 +776,7 @@ export default function DashboardLayout({
               >
                 {adminData?.email?.charAt(0).toUpperCase() || "A"}
               </div>
-              <div>
+              <div className="hide-on-mobile">
                 <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--foreground)", lineHeight: 1.3 }}>
                   {adminData?.email?.split("@")[0] || "Admin"}
                 </p>
@@ -675,7 +823,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Content */}
-        <main style={{ flex: 1, padding: "24px" }}>
+        <main style={{ flex: 1, padding: isMobile ? "16px 12px" : "24px", maxWidth: "100%", overflowX: "hidden" }}>
           {children}
         </main>
       </div>

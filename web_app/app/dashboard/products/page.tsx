@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getProducts, deleteProduct, getCategories, getSubCategories } from "@/lib/api";
+import { getProducts, deleteProduct, getCategories, getSubCategories, getMediaUrl } from "@/lib/api";
 import CopyableText from "@/components/CopyableText";
 
 interface Product {
@@ -39,6 +39,13 @@ export default function ProductsPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth > 768) {
+      setViewMode("table");
+    }
+  }, []);
   const [alertModal, setAlertModal] = useState<{
     isOpen: boolean;
     type: "confirm" | "success" | "error";
@@ -385,6 +392,41 @@ export default function ProductsPage() {
               Reset
             </button>
           )}
+          {/* View Mode Toggle */}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", background: "var(--card)", border: "1px solid var(--border)", borderRadius: "calc(var(--radius) - 2px)", padding: "2px", height: "38px" }}>
+            <button
+              onClick={() => setViewMode("cards")}
+              title="Tampilan Kartu (Mobile Friendly)"
+              style={{
+                display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px", height: "100%",
+                background: viewMode === "cards" ? "var(--primary)" : "transparent",
+                color: viewMode === "cards" ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                border: "none", borderRadius: "calc(var(--radius) - 4px)", fontSize: "12px", fontWeight: 500, cursor: "pointer",
+                transition: "all 0.15s"
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+              </svg>
+              <span>Kartu</span>
+            </button>
+            <button
+              onClick={() => setViewMode("table")}
+              title="Tampilan Tabel"
+              style={{
+                display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px", height: "100%",
+                background: viewMode === "table" ? "var(--primary)" : "transparent",
+                color: viewMode === "table" ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                border: "none", borderRadius: "calc(var(--radius) - 4px)", fontSize: "12px", fontWeight: 500, cursor: "pointer",
+                transition: "all 0.15s"
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+              <span>Tabel</span>
+            </button>
+          </div>
         </div>
 
         {/* Collapsible advanced filters grid with glassmorphism style */}
@@ -499,130 +541,301 @@ export default function ProductsPage() {
         )}
       </div>
 
-      {/* Table */}
-      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-            <thead>
-              <tr>
-                {["Image", "Artikel", "Nama Produk", "Warna", "Harga", "Items", "Status", "Action"].map((h) => (
-                  <th key={h} style={{
-                    padding: "10px 18px", textAlign: "left", fontSize: "11px", fontWeight: 500,
-                    color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.5px",
-                    borderBottom: "1px solid var(--border)", background: "var(--muted)",
-                  }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={8} style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted-foreground)" }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: "8px", verticalAlign: "middle" }}>
-                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                    </svg>
-                    Loading produk...
-                  </td>
-                </tr>
-              ) : products.length === 0 ? (
-                <tr>
-                  <td colSpan={8} style={{ padding: "48px 24px", textAlign: "center" }}>
-                    <p style={{ fontSize: "14px", color: "var(--muted-foreground)" }}>Tidak ada produk ditemukan</p>
-                  </td>
-                </tr>
-              ) : (
-                products.map((p, i) => {
-                  const status = getItemStatus(p);
-                  return (
-                    <tr
-                      key={p.id_produk}
-                      style={{ borderBottom: i < products.length - 1 ? "1px solid var(--border)" : "none", transition: "background 0.1s" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--accent)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                    >
-                      <td style={{ padding: "10px 18px" }}>
-                        {p.gambar_url ? (
-                          <img
-                            src={`${API_BASE}${p.gambar_url}`}
-                            alt={p.nama_produk}
-                            style={{ width: "36px", height: "36px", borderRadius: "calc(var(--radius) - 4px)", objectFit: "cover" }}
-                          />
-                        ) : (
-                          <div style={{
-                            width: "36px", height: "36px", borderRadius: "calc(var(--radius) - 4px)",
-                            background: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center",
-                          }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" strokeWidth="1.5">
-                              <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
-                            </svg>
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ padding: "10px 18px", color: "var(--muted-foreground)" }}>
-                        <CopyableText text={p.tipe_artikel} />
-                      </td>
-                      <td style={{ padding: "10px 18px" }}>
-                        <p style={{ fontWeight: 500, color: "var(--foreground)", marginBottom: "2px" }}>{p.nama_produk}</p>
-                        <p style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>{p.nama_kategori} / {p.nama_sub_kategori}</p>
-                      </td>
-                      <td style={{ padding: "10px 18px", color: "var(--foreground)", textTransform: "capitalize" }}>
-                        {p.warna}
-                      </td>
-                      <td style={{ padding: "10px 18px", color: "var(--foreground)", fontSize: "12px" }}>
-                        Rp {Number(p.harga).toLocaleString("id-ID")}
-                      </td>
-                      <td style={{ padding: "10px 18px", fontSize: "12px" }}>
-                        {(() => {
-                          const pending = p.total_items - p.minted_items - p.sold_items;
-                          return (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                              <p style={{ color: "var(--foreground)", fontWeight: 500, margin: 0, display: "flex", alignItems: "center", gap: "4px" }}>
-                                <span>{p.total_items}</span>
-                                <span style={{ color: "var(--muted-foreground)", fontWeight: 300 }}>/</span>
-                                <span style={{ color: pending > 0 ? "var(--lc-warning)" : "var(--muted-foreground)", fontWeight: pending > 0 ? 600 : 500 }}>
-                                  {pending}
-                                </span>
-                                {pending > 0 && (
-                                  <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "var(--lc-warning)", marginLeft: "2px" }} />
-                                )}
-                              </p>
-                              <p style={{ fontSize: "10px", color: "var(--muted-foreground)", margin: 0, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                                Total / Pending
-                              </p>
-                            </div>
-                          );
-                        })()}
-                      </td>
-                      <td style={{ padding: "10px 18px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: 500, padding: "3px 10px", borderRadius: "20px", textTransform: "capitalize", ...statusStyle(status) }}>
+      {/* Products Content: Card View or Table View */}
+      {viewMode === "cards" ? (
+        loading ? (
+          <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted-foreground)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: "8px", verticalAlign: "middle" }}>
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+            Loading produk...
+          </div>
+        ) : products.length === 0 ? (
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "48px 24px", textAlign: "center" }}>
+            <p style={{ fontSize: "14px", color: "var(--muted-foreground)" }}>Tidak ada produk ditemukan</p>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "14px" }}>
+            {products.map((p) => {
+              const status = getItemStatus(p);
+              const pending = p.total_items - p.minted_items - p.sold_items;
+              return (
+                <div
+                  key={p.id_produk}
+                  className="animate-fade-in"
+                  style={{
+                    background: "var(--card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)",
+                    padding: "16px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "12px",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                  }}
+                >
+                  {/* Top: Image & Title */}
+                  <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
+                    {p.gambar_url ? (
+                      <img
+                        src={getMediaUrl(p.gambar_url)}
+                        alt={p.nama_produk}
+                        style={{ width: "56px", height: "56px", borderRadius: "calc(var(--radius) - 2px)", objectFit: "cover", flexShrink: 0 }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: "56px", height: "56px", borderRadius: "calc(var(--radius) - 2px)",
+                        background: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+                      }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" strokeWidth="1.5">
+                          <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                        </svg>
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "6px" }}>
+                        <h3 style={{ fontSize: "14px", fontWeight: 600, color: "var(--foreground)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {p.nama_produk}
+                        </h3>
+                        <span style={{ fontSize: "10px", fontWeight: 500, padding: "2px 8px", borderRadius: "12px", textTransform: "capitalize", flexShrink: 0, ...statusStyle(status) }}>
                           {status}
                         </span>
-                      </td>
-                      <td style={{ padding: "10px 18px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <button
-                            onClick={() => handleDelete(p.id_produk, p.nama_produk, p.total_items, p.minted_items, p.sold_items)}
-                            style={{ width: "28px", height: "28px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "calc(var(--radius) - 4px)", border: "1px solid var(--border)", background: "transparent", cursor: "pointer", color: "var(--muted-foreground)", transition: "all 0.15s" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--destructive)"; e.currentTarget.style.color = "var(--destructive)"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--muted-foreground)"; }}
-                          >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="3 6 5 6 21 6" />
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                            </svg>
-                          </button>
-                        </div>
+                      </div>
+                      <p style={{ fontSize: "12px", color: "var(--muted-foreground)", margin: "2px 0 0" }}>
+                        {p.tipe_artikel} • {p.nama_kategori}
+                      </p>
+                      <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--primary)", margin: "4px 0 0" }}>
+                        Rp {Number(p.harga).toLocaleString("id-ID")}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Specs Pill */}
+                  <div style={{
+                    background: "var(--input-background)",
+                    borderRadius: "calc(var(--radius) - 4px)",
+                    padding: "8px 12px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontSize: "12px",
+                  }}>
+                    <div>
+                      <span style={{ color: "var(--muted-foreground)" }}>Warna: </span>
+                      <strong style={{ color: "var(--foreground)", textTransform: "capitalize" }}>{p.warna || "-"}</strong>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ color: "var(--muted-foreground)" }}>Items: </span>
+                      <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{p.total_items}</span>
+                      <span style={{ color: "var(--muted-foreground)" }}>/</span>
+                      <span style={{ fontWeight: 600, color: pending > 0 ? "var(--lc-warning)" : "var(--muted-foreground)" }}>
+                        {pending} pnd
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: "flex", gap: "8px", marginTop: "auto", paddingTop: "4px" }}>
+                    {pending > 0 && (
+                      <button
+                        onClick={() => router.push(`/dashboard/nfc-queue?id_produk=${p.id_produk}`)}
+                        style={{
+                          flex: 1,
+                          padding: "7px 10px",
+                          background: "var(--accent)",
+                          color: "var(--primary)",
+                          border: "1px solid var(--primary)",
+                          borderRadius: "calc(var(--radius) - 4px)",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                        </svg>
+                        Antrean NFC ({pending})
+                      </button>
+                    )}
+                    <button
+                      onClick={() => router.push(`/dashboard/product-items?search=${encodeURIComponent(p.nama_produk)}`)}
+                      style={{
+                        flex: pending > 0 ? undefined : 1,
+                        padding: "7px 10px",
+                        background: "var(--secondary)",
+                        color: "var(--foreground)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "calc(var(--radius) - 4px)",
+                        fontSize: "12px",
+                        fontWeight: 500,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      Unit Fisik
+                    </button>
+                    <button
+                      onClick={() => handleDelete(p.id_produk, p.nama_produk, p.total_items, p.minted_items, p.sold_items)}
+                      style={{
+                        padding: "7px 10px",
+                        background: "transparent",
+                        color: "var(--destructive)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "calc(var(--radius) - 4px)",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                      }}
+                      title="Hapus Produk"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      ) : (
+        /* Table View */
+        <div>
+          <div className="show-on-mobile" style={{ alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--muted-foreground)", marginBottom: "8px" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /><polyline points="19 18 13 12 19 6" /></svg>
+            <span>Geser tabel ke samping ↔ untuk melihat kolom lainnya</span>
+          </div>
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
+            <div className="table-responsive-container">
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", minWidth: "750px" }}>
+                <thead>
+                  <tr>
+                    {["Image", "Artikel", "Nama Produk", "Warna", "Harga", "Items", "Status", "Action"].map((h) => (
+                      <th key={h} style={{
+                        padding: "10px 18px", textAlign: "left", fontSize: "11px", fontWeight: 500,
+                        color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.5px",
+                        borderBottom: "1px solid var(--border)", background: "var(--muted)",
+                      }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={8} style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted-foreground)" }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: "8px", verticalAlign: "middle" }}>
+                          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                        </svg>
+                        Loading produk...
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                  ) : products.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ padding: "48px 24px", textAlign: "center" }}>
+                        <p style={{ fontSize: "14px", color: "var(--muted-foreground)" }}>Tidak ada produk ditemukan</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    products.map((p, i) => {
+                      const status = getItemStatus(p);
+                      return (
+                        <tr
+                          key={p.id_produk}
+                          style={{ borderBottom: i < products.length - 1 ? "1px solid var(--border)" : "none", transition: "background 0.1s" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--accent)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                        >
+                          <td style={{ padding: "10px 18px" }}>
+                            {p.gambar_url ? (
+                              <img
+                                src={getMediaUrl(p.gambar_url)}
+                                alt={p.nama_produk}
+                                style={{ width: "36px", height: "36px", borderRadius: "calc(var(--radius) - 4px)", objectFit: "cover" }}
+                              />
+                            ) : (
+                              <div style={{
+                                width: "36px", height: "36px", borderRadius: "calc(var(--radius) - 4px)",
+                                background: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center",
+                              }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" strokeWidth="1.5">
+                                  <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                                </svg>
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: "10px 18px", color: "var(--muted-foreground)" }}>
+                            <CopyableText text={p.tipe_artikel} />
+                          </td>
+                          <td style={{ padding: "10px 18px" }}>
+                            <p style={{ fontWeight: 500, color: "var(--foreground)", marginBottom: "2px" }}>{p.nama_produk}</p>
+                            <p style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>{p.nama_kategori} / {p.nama_sub_kategori}</p>
+                          </td>
+                          <td style={{ padding: "10px 18px", color: "var(--foreground)", textTransform: "capitalize" }}>
+                            {p.warna}
+                          </td>
+                          <td style={{ padding: "10px 18px", color: "var(--foreground)", fontSize: "12px" }}>
+                            Rp {Number(p.harga).toLocaleString("id-ID")}
+                          </td>
+                          <td style={{ padding: "10px 18px", fontSize: "12px" }}>
+                            {(() => {
+                              const pending = p.total_items - p.minted_items - p.sold_items;
+                              return (
+                                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                  <p style={{ color: "var(--foreground)", fontWeight: 500, margin: 0, display: "flex", alignItems: "center", gap: "4px" }}>
+                                    <span>{p.total_items}</span>
+                                    <span style={{ color: "var(--muted-foreground)", fontWeight: 300 }}>/</span>
+                                    <span style={{ color: pending > 0 ? "var(--lc-warning)" : "var(--muted-foreground)", fontWeight: pending > 0 ? 600 : 500 }}>
+                                      {pending}
+                                    </span>
+                                    {pending > 0 && (
+                                      <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "var(--lc-warning)", marginLeft: "2px" }} />
+                                    )}
+                                  </p>
+                                  <p style={{ fontSize: "10px", color: "var(--muted-foreground)", margin: 0, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                    Total / Pending
+                                  </p>
+                                </div>
+                              );
+                            })()}
+                          </td>
+                          <td style={{ padding: "10px 18px" }}>
+                            <span style={{ fontSize: "11px", fontWeight: 500, padding: "3px 10px", borderRadius: "20px", textTransform: "capitalize", ...statusStyle(status) }}>
+                              {status}
+                            </span>
+                          </td>
+                          <td style={{ padding: "10px 18px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <button
+                                onClick={() => handleDelete(p.id_produk, p.nama_produk, p.total_items, p.minted_items, p.sold_items)}
+                                style={{ width: "28px", height: "28px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "calc(var(--radius) - 4px)", border: "1px solid var(--border)", background: "transparent", cursor: "pointer", color: "var(--muted-foreground)", transition: "all 0.15s" }}
+                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--destructive)"; e.currentTarget.style.color = "var(--destructive)"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--muted-foreground)"; }}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Pagination */}
       {pagination.totalPages > 1 && (

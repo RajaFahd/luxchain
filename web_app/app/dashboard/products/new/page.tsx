@@ -193,7 +193,7 @@ export default function NewProductPage() {
             <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--foreground)", letterSpacing: "0.5px" }}>METADATA PRODUK</span>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+          <div className="grid-responsive-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
             {/* 1. Nama Kategori */}
             <div>
               <label htmlFor="nama_kategori" style={labelStyle}>Nama Kategori *</label>
@@ -241,6 +241,10 @@ export default function NewProductPage() {
                 e.preventDefault(); setDragOver(false);
                 const file = e.dataTransfer.files[0];
                 if (file && /\.(jpg|jpeg|png|webp)$/i.test(file.name)) {
+                  if (file.size > 5 * 1024 * 1024) {
+                    alert("Ukuran file maksimal adalah 5 MB!");
+                    return;
+                  }
                   setImageFile(file);
                   setImagePreview(URL.createObjectURL(file));
                 }
@@ -276,7 +280,14 @@ export default function NewProductPage() {
             </div>
             <input id="gambar-input" type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)); }
+              if (file) {
+                if (file.size > 5 * 1024 * 1024) {
+                  alert("Ukuran file maksimal adalah 5 MB!");
+                  return;
+                }
+                setImageFile(file);
+                setImagePreview(URL.createObjectURL(file));
+              }
             }} />
           </div>
         </div>

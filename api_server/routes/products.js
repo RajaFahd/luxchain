@@ -76,31 +76,8 @@ async function checkAdminWalletAuthorization(id_admin) {
   return walletAddress;
 }
 
-// ===== Multer config for product images =====
-const uploadsDir = path.join(__dirname, '..', 'public', 'uploads', 'products');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `product_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(null, false);
-    }
-  },
-});
+// ===== Multer & Supabase Storage config for product images =====
+const { upload, uploadImageToSupabase } = require('../config/storage');
 
 /**
  * GET /api/products
@@ -168,7 +145,7 @@ router.get('/', authMiddleware, async (req, res, next) => {
             email: true,
           },
         },
-        items: true,
+        product_items: true,
       },
       orderBy: {
         id_produk: 'desc',
@@ -177,7 +154,7 @@ router.get('/', authMiddleware, async (req, res, next) => {
 
     // Format & aggregate item counts
     let formatted = products.map(pm => {
-      const items = pm.items || [];
+      const items = pm.product_items || [];
       const totalItems = items.length;
       const waitingNfcItems = items.filter(i => i.status === 'waiting_nfc').length;
       const mintedItems = items.filter(i => i.status === 'minted').length;
@@ -253,7 +230,7 @@ router.get('/:id', authMiddleware, async (req, res, next) => {
         admin: {
           select: { email: true },
         },
-        items: {
+        product_items: {
           orderBy: { created_at: 'desc' },
         },
       },
@@ -273,7 +250,7 @@ router.get('/:id', authMiddleware, async (req, res, next) => {
         nama_sub_kategori: product.sub_kategori?.nama_sub_kategori || '',
         nama_kategori: product.sub_kategori?.kategori?.nama_kategori || '',
         admin_email: product.admin?.email || '',
-        items: product.items,
+        items: product.product_items,
       },
     });
   } catch (error) {
@@ -320,8 +297,11 @@ router.post('/', authMiddleware, upload.single('gambar'), async (req, res, next)
       });
     }
 
-    // Handle uploaded image
-    const gambar_url = req.file ? `/uploads/products/${req.file.filename}` : null;
+    // Handle uploaded image (upload to Supabase Storage 'foto_produk' as WebP)
+    let gambar_url = null;
+    if (req.file) {
+      gambar_url = await uploadImageToSupabase(req.file.buffer, 'foto_produk', 'product');
+    }
 
     // Resolve or create Kategori
     let kategori = await prisma.kategori.findFirst({

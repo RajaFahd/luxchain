@@ -9,18 +9,11 @@ function errorHandler(err, req, res, next) {
   console.error('❌ Error:', err.message);
   console.error(err.stack);
 
-  // MySQL errors
-  if (err.code === 'ER_DUP_ENTRY') {
-    return res.status(409).json({
-      success: false,
-      message: 'Duplicate entry. Record already exists.',
-    });
-  }
-
-  if (err.code === 'ER_NO_REFERENCED_ROW_2') {
+  // Multer errors (file size limit, etc.)
+  if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({
       success: false,
-      message: 'Referenced record not found (foreign key constraint).',
+      message: 'Ukuran file terlalu besar! Maksimal ukuran file adalah 5 MB.',
     });
   }
 

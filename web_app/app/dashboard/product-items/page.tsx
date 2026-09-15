@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getProductItems } from "@/lib/api";
+import { getProductItems, getMediaUrl } from "@/lib/api";
 import CopyableText from "@/components/CopyableText";
 
 export default function ProductItemsPage() {
@@ -51,6 +51,14 @@ export default function ProductItemsPage() {
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, statusFilter]);
+
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth > 768) {
+      setViewMode("table");
+    }
+  }, []);
 
   const truncateString = (str: string, len: number = 8) => {
     if (!str) return "-";
@@ -245,6 +253,42 @@ export default function ProductItemsPage() {
             );
           })}
         </div>
+
+        {/* View Mode Toggle */}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", background: "var(--card)", border: "1px solid var(--border)", borderRadius: "calc(var(--radius) - 2px)", padding: "2px", height: "36px" }}>
+          <button
+            onClick={() => setViewMode("cards")}
+            title="Tampilan Kartu (Mobile Friendly)"
+            style={{
+              display: "flex", alignItems: "center", gap: "5px", padding: "5px 10px", height: "100%",
+              background: viewMode === "cards" ? "var(--primary)" : "transparent",
+              color: viewMode === "cards" ? "var(--primary-foreground)" : "var(--muted-foreground)",
+              border: "none", borderRadius: "calc(var(--radius) - 4px)", fontSize: "12px", fontWeight: 500, cursor: "pointer",
+              transition: "all 0.15s"
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+            </svg>
+            <span>Kartu</span>
+          </button>
+          <button
+            onClick={() => setViewMode("table")}
+            title="Tampilan Tabel"
+            style={{
+              display: "flex", alignItems: "center", gap: "5px", padding: "5px 10px", height: "100%",
+              background: viewMode === "table" ? "var(--primary)" : "transparent",
+              color: viewMode === "table" ? "var(--primary-foreground)" : "var(--muted-foreground)",
+              border: "none", borderRadius: "calc(var(--radius) - 4px)", fontSize: "12px", fontWeight: 500, cursor: "pointer",
+              transition: "all 0.15s"
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+            </svg>
+            <span>Tabel</span>
+          </button>
+        </div>
       </div>
 
       {/* Batch Actions Panel */}
@@ -308,190 +352,356 @@ export default function ProductItemsPage() {
         </div>
       )}
 
-      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-        {loading ? (
+      {/* Product Items Content: Card View or Table View */}
+      {viewMode === "cards" ? (
+        loading ? (
           <div style={{ padding: "40px", textAlign: "center", color: "var(--muted-foreground)" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite", display: "inline-block", marginRight: "8px", verticalAlign: "middle" }}>
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
             Loading data...
           </div>
         ) : items.length === 0 ? (
-          <div style={{ padding: "40px", textAlign: "center", color: "var(--muted-foreground)" }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "40px", textAlign: "center", color: "var(--muted-foreground)" }}>
             Belum ada item yang terdaftar.
           </div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "14px" }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--secondary)" }}>
-                <th style={{ padding: "16px 20px", width: "40px" }}>
-                  <input 
-                    type="checkbox" 
-                    checked={items.length > 0 && selectedItems.length === items.length}
-                    onChange={handleSelectAll}
-                    style={{ cursor: "pointer", accentColor: "var(--primary)" }}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "14px" }}>
+            {items.map((i: any) => (
+              <div
+                key={i.id_item}
+                className="animate-fade-in"
+                style={{
+                  background: "var(--card)",
+                  border: selectedItems.includes(i.id_item) ? "1.5px solid var(--primary)" : "1px solid var(--border)",
+                  borderRadius: "var(--radius)",
+                  padding: "16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "12px",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {/* Header: Checkbox + Image + Product Title + Status */}
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.includes(i.id_item)}
+                    onChange={() => handleSelectItem(i.id_item)}
+                    style={{ cursor: "pointer", accentColor: "var(--primary)", marginTop: "3px" }}
                   />
-                </th>
-                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>PRODUK</th>
-                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>UUID (QR CODE)</th>
-                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>UID FISIK (NFC)</th>
-                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>SECRET CODE</th>
-                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>HASH BLOCKCHAIN</th>
-                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>TXHASH</th>
-                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>STATUS MINT</th>
-                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>CLAIMED?</th>
-                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>TANGGAL MINT</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((i: any) => (
-                <tr key={i.id_item} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "16px 20px", width: "40px" }}>
-                    <input 
-                      type="checkbox" 
-                      checked={selectedItems.includes(i.id_item)}
-                      onChange={() => handleSelectItem(i.id_item)}
-                      style={{ cursor: "pointer", accentColor: "var(--primary)" }}
+                  {i.gambar_url ? (
+                    <img
+                      src={getMediaUrl(i.gambar_url)}
+                      alt={i.nama_produk}
+                      style={{ width: "44px", height: "44px", objectFit: "cover", borderRadius: "6px", flexShrink: 0 }}
                     />
-                  </td>
-                  <td style={{ padding: "16px 20px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                      {i.gambar_url ? (
-                        <img 
-                          src={`${API_BASE}${i.gambar_url}`} 
-                          alt={i.nama_produk} 
-                          style={{ width: "40px", height: "40px", objectFit: "cover", borderRadius: "8px" }} 
-                        />
-                      ) : (
-                        <div style={{ width: "40px", height: "40px", background: "var(--muted)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          📦
-                        </div>
-                      )}
-                      <span style={{ fontWeight: 500, color: "var(--foreground)" }}>{i.nama_produk}</span>
+                  ) : (
+                    <div style={{ width: "44px", height: "44px", background: "var(--muted)", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      📦
                     </div>
-                  </td>
-                  <td style={{ padding: "16px 20px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <div style={{ background: "rgba(184, 150, 62, 0.1)", padding: "4px 8px", borderRadius: "4px", display: "inline-block" }}>
-                        <CopyableText 
-                          text={i.id_item} 
-                          truncateText={truncateString(i.id_item, 6)} 
-                          style={{ color: "var(--primary)" }} 
-                        />
-                      </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={{ fontSize: "14px", fontWeight: 600, color: "var(--foreground)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {i.nama_produk}
+                    </h3>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px", flexWrap: "wrap" }}>
+                      <span style={{
+                        padding: "2px 8px", borderRadius: "10px", fontSize: "11px", fontWeight: 600, textTransform: "uppercase",
+                        background: i.status === "minted" ? "var(--lc-success-bg)" : i.status === "waiting_nfc" ? "rgba(245, 158, 11, 0.12)" : "rgba(200, 169, 110, 0.15)",
+                        color: i.status === "minted" ? "var(--lc-success)" : i.status === "waiting_nfc" ? "var(--lc-warning)" : "var(--primary)"
+                      }}>
+                        {i.status === "waiting_nfc" ? "Waiting NFC" : i.status}
+                      </span>
+                      <span style={{ fontSize: "11px", color: i.is_claimed ? "var(--lc-success)" : "var(--muted-foreground)", fontWeight: 500 }}>
+                        {i.is_claimed ? "✓ Claimed" : "Belum Claim"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Specs Block */}
+                <div style={{
+                  background: "var(--input-background)",
+                  borderRadius: "calc(var(--radius) - 4px)",
+                  padding: "10px 12px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  fontSize: "12px",
+                }}>
+                  {/* UUID + Download QR */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: "var(--muted-foreground)" }}>UUID:</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <CopyableText text={i.id_item} truncateText={truncateString(i.id_item, 6)} style={{ color: "var(--primary)", fontFamily: "monospace" }} />
                       <button
                         onClick={() => handleDownloadQR(i.id_item)}
-                        title="Download QR Code Physical Tag"
+                        title="Download QR Code"
                         style={{
-                          background: "var(--secondary)",
-                          border: "1px solid var(--border)",
-                          borderRadius: "4px",
-                          width: "24px",
-                          height: "24px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          cursor: "pointer",
-                          color: "var(--muted-foreground)",
-                          transition: "all 0.15s ease",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = "var(--primary)";
-                          e.currentTarget.style.color = "var(--primary)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = "var(--border)";
-                          e.currentTarget.style.color = "var(--muted-foreground)";
+                          background: "var(--card)", border: "1px solid var(--border)", borderRadius: "4px",
+                          width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--muted-foreground)"
                         }}
                       >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                          <polyline points="7 10 12 15 17 10"></polyline>
-                          <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                       </button>
                     </div>
-                  </td>
-                  <td style={{ padding: "16px 20px" }}>
+                  </div>
+
+                  {/* UID Fisik NFC */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: "var(--muted-foreground)" }}>UID Fisik NFC:</span>
                     {i.uid_fisik ? (
-                      <CopyableText 
-                        text={i.uid_fisik} 
-                        style={{ color: "var(--primary)", fontFamily: "monospace", fontSize: "12px", fontWeight: 500 }} 
+                      <CopyableText text={i.uid_fisik} style={{ color: "var(--primary)", fontFamily: "monospace", fontWeight: 500 }} />
+                    ) : (
+                      <a href="/dashboard/nfc-queue" style={{ color: "var(--lc-warning)", fontStyle: "italic", fontSize: "11px", textDecoration: "underline" }}>
+                        Waiting NFC (Tap Sekarang →)
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Hash Blockchain */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: "var(--muted-foreground)" }}>Hash:</span>
+                    <CopyableText text={i.hash_blockchain} truncateText={truncateString(i.hash_blockchain, 6)} style={{ fontFamily: "monospace", fontSize: "11px" }} />
+                  </div>
+
+                  {/* Secret Code */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: "var(--muted-foreground)" }}>Secret Code:</span>
+                    <CopyableText text={i.secret_code} style={{ fontWeight: 500 }} />
+                  </div>
+                </div>
+
+                {/* Footer info */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", color: "var(--muted-foreground)", marginTop: "auto" }}>
+                  <span>Mint: {formatDate(i.created_at)}</span>
+                  {i.tx_hash && (
+                    <a
+                      href={`https://sepolia.etherscan.io/tx/${i.tx_hash}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: "var(--primary)", textDecoration: "none", display: "flex", alignItems: "center", gap: "2px" }}
+                    >
+                      <span>Etherscan</span>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : (
+        /* Table View */
+        <div>
+          <div className="show-on-mobile" style={{ alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--muted-foreground)", marginBottom: "8px" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /><polyline points="19 18 13 12 19 6" /></svg>
+            <span>Geser tabel ke samping ↔ untuk melihat semua data fisik</span>
+          </div>
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+            {loading ? (
+              <div style={{ padding: "40px", textAlign: "center", color: "var(--muted-foreground)" }}>
+                Loading data...
+              </div>
+            ) : items.length === 0 ? (
+              <div style={{ padding: "40px", textAlign: "center", color: "var(--muted-foreground)" }}>
+                Belum ada item yang terdaftar.
+              </div>
+            ) : (
+              <div className="table-responsive-container">
+                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "14px", minWidth: "850px" }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--secondary)" }}>
+                    <th style={{ padding: "16px 20px", width: "40px" }}>
+                      <input 
+                        type="checkbox" 
+                        checked={items.length > 0 && selectedItems.length === items.length}
+                        onChange={handleSelectAll}
+                        style={{ cursor: "pointer", accentColor: "var(--primary)" }}
                       />
-                    ) : (
-                      <span style={{ color: "var(--muted-foreground)", fontSize: "12px", fontStyle: "italic" }}>
-                        Belum diikat
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ padding: "16px 20px" }}>
-                    <CopyableText 
-                      text={i.secret_code} 
-                      style={{ color: "var(--foreground)", fontWeight: 500 }} 
-                    />
-                  </td>
-                  <td style={{ padding: "16px 20px" }}>
-                    <CopyableText 
-                      text={i.hash_blockchain} 
-                      truncateText={truncateString(i.hash_blockchain, 6)} 
-                      style={{ color: "var(--muted-foreground)" }} 
-                    />
-                  </td>
-                  <td style={{ padding: "16px 20px" }}>
-                    {i.tx_hash ? (
-                      <CopyableText 
-                        text={i.tx_hash} 
-                        truncateText={truncateString(i.tx_hash, 8)} 
-                        style={{ color: "var(--muted-foreground)" }} 
-                        link={`https://sepolia.etherscan.io/tx/${i.tx_hash}`} 
-                      />
-                    ) : (
-                      <span style={{ color: "var(--muted-foreground)" }}>—</span>
-                    )}
-                  </td>
-                  <td style={{ padding: "16px 20px" }}>
-                    <span style={{ 
-                      background:
-                        i.status === 'minted'
-                          ? "var(--lc-success-bg)"
-                          : i.status === 'waiting_nfc'
-                          ? "rgba(59, 130, 246, 0.12)"
-                          : i.status === 'sold'
-                          ? "rgba(168, 85, 247, 0.12)"
-                          : "var(--lc-warning-bg)", 
-                      color:
-                        i.status === 'minted'
-                          ? "var(--lc-success)"
-                          : i.status === 'waiting_nfc'
-                          ? "#3b82f6"
-                          : i.status === 'sold'
-                          ? "#a855f7"
-                          : "var(--lc-warning)", 
-                      padding: "4px 10px", 
-                      borderRadius: "20px", 
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px"
-                    }}>
-                      {i.status === 'waiting_nfc' && <span>🏷️</span>}
-                      {i.status.replace('_', ' ').toUpperCase()}
-                    </span>
-                  </td>
-                  <td style={{ padding: "16px 20px" }}>
-                    {i.is_claimed ? (
-                      <span style={{ color: "var(--lc-success)", fontWeight: 500, fontSize: "13px" }}>✓ YES</span>
-                    ) : (
-                      <span style={{ color: "var(--muted-foreground)", fontSize: "13px" }}>- NO</span>
-                    )}
-                  </td>
-                  <td style={{ padding: "16px 20px", color: "var(--muted-foreground)", fontSize: "13px" }}>
-                    {formatDate(i.created_at)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+                    </th>
+                    <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>PRODUK</th>
+                    <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>UUID (QR CODE)</th>
+                    <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>UID FISIK (NFC)</th>
+                    <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>SECRET CODE</th>
+                    <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>HASH BLOCKCHAIN</th>
+                    <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>TXHASH</th>
+                    <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>STATUS MINT</th>
+                    <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>CLAIMED?</th>
+                    <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>TANGGAL MINT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((i: any) => (
+                    <tr key={i.id_item} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "16px 20px", width: "40px" }}>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedItems.includes(i.id_item)}
+                          onChange={() => handleSelectItem(i.id_item)}
+                          style={{ cursor: "pointer", accentColor: "var(--primary)" }}
+                        />
+                      </td>
+                      <td style={{ padding: "16px 20px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          {i.gambar_url ? (
+                            <img 
+                              src={getMediaUrl(i.gambar_url)} 
+                              alt={i.nama_produk} 
+                              style={{ width: "40px", height: "40px", objectFit: "cover", borderRadius: "8px" }} 
+                            />
+                          ) : (
+                            <div style={{ width: "40px", height: "40px", background: "var(--muted)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              📦
+                            </div>
+                          )}
+                          <span style={{ fontWeight: 500, color: "var(--foreground)" }}>{i.nama_produk}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: "16px 20px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <div style={{ background: "rgba(184, 150, 62, 0.1)", padding: "4px 8px", borderRadius: "4px", display: "inline-block" }}>
+                            <CopyableText 
+                              text={i.id_item} 
+                              truncateText={truncateString(i.id_item, 6)} 
+                              style={{ color: "var(--primary)" }} 
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleDownloadQR(i.id_item)}
+                            title="Download QR Code Physical Tag"
+                            style={{
+                              background: "var(--secondary)",
+                              border: "1px solid var(--border)",
+                              borderRadius: "4px",
+                              width: "24px",
+                              height: "24px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                              color: "var(--muted-foreground)",
+                              transition: "all 0.15s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = "var(--primary)";
+                              e.currentTarget.style.color = "var(--primary)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = "var(--border)";
+                              e.currentTarget.style.color = "var(--muted-foreground)";
+                            }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                              <polyline points="7 10 12 15 17 10"></polyline>
+                              <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                      <td style={{ padding: "16px 20px" }}>
+                        {i.uid_fisik ? (
+                          <CopyableText 
+                            text={i.uid_fisik} 
+                            style={{ color: "var(--primary)", fontFamily: "monospace", fontSize: "12px", fontWeight: 500 }} 
+                          />
+                        ) : (
+                          <span style={{ color: "var(--muted-foreground)", fontSize: "12px", fontStyle: "italic" }}>
+                            Belum diikat
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: "16px 20px" }}>
+                        <CopyableText 
+                          text={i.secret_code} 
+                          style={{ color: "var(--foreground)", fontWeight: 500 }} 
+                        />
+                      </td>
+                      <td style={{ padding: "16px 20px" }}>
+                        <CopyableText 
+                          text={i.hash_blockchain} 
+                          truncateText={truncateString(i.hash_blockchain, 6)} 
+                          style={{ color: "var(--primary)", fontFamily: "monospace", fontSize: "12px" }} 
+                        />
+                      </td>
+                      <td style={{ padding: "16px 20px" }}>
+                        {i.tx_hash ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <CopyableText 
+                              text={i.tx_hash} 
+                              truncateText={truncateString(i.tx_hash, 6)} 
+                              style={{ color: "var(--muted-foreground)", fontFamily: "monospace", fontSize: "12px" }} 
+                            />
+                            <a 
+                              href={`https://sepolia.etherscan.io/tx/${i.tx_hash}`} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              title="Lihat di Sepolia Etherscan"
+                              style={{ color: "var(--primary)", display: "flex", alignItems: "center" }}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                <polyline points="15 3 21 3 21 9"></polyline>
+                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                              </svg>
+                            </a>
+                          </div>
+                        ) : (
+                          <span style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>-</span>
+                        )}
+                      </td>
+                      <td style={{ padding: "16px 20px" }}>
+                        <span style={{ 
+                          background: 
+                            i.status === 'minted' 
+                              ? "var(--lc-success-bg)" 
+                              : i.status === 'waiting_nfc'
+                              ? "rgba(59, 130, 246, 0.12)"
+                              : i.status === 'sold'
+                              ? "rgba(168, 85, 247, 0.12)"
+                              : "var(--lc-warning-bg)", 
+                          color: 
+                            i.status === 'minted' 
+                              ? "var(--lc-success)" 
+                              : i.status === 'waiting_nfc'
+                              ? "#3b82f6"
+                              : i.status === 'sold'
+                              ? "#a855f7"
+                              : "var(--lc-warning)", 
+                          padding: "4px 10px", 
+                          borderRadius: "20px", 
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px"
+                        }}>
+                          {i.status === 'waiting_nfc' && <span>🏷️</span>}
+                          {i.status.replace('_', ' ').toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ padding: "16px 20px" }}>
+                        {i.is_claimed ? (
+                          <span style={{ color: "var(--lc-success)", fontWeight: 500, fontSize: "13px" }}>✓ YES</span>
+                        ) : (
+                          <span style={{ color: "var(--muted-foreground)", fontSize: "13px" }}>- NO</span>
+                        )}
+                      </td>
+                      <td style={{ padding: "16px 20px", color: "var(--muted-foreground)", fontSize: "13px" }}>
+                        {formatDate(i.created_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Pagination */}
       {pagination.totalPages > 1 && (

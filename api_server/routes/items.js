@@ -37,7 +37,7 @@ router.get('/', async (req, res, next) => {
         { hash_blockchain: { contains: search, mode: 'insensitive' } },
         { tx_hash: { contains: search, mode: 'insensitive' } },
         {
-          produk: {
+          produk_master: {
             nama_produk: { contains: search, mode: 'insensitive' },
           },
         },
@@ -48,7 +48,7 @@ router.get('/', async (req, res, next) => {
       prisma.productItem.findMany({
         where,
         include: {
-          produk: {
+          produk_master: {
             select: {
               nama_produk: true,
               gambar_url: true,
@@ -73,8 +73,8 @@ router.get('/', async (req, res, next) => {
       tx_hash: pi.tx_hash,
       secret_code: pi.secret_code,
       uid_fisik: pi.uid_fisik,
-      nama_produk: pi.produk?.nama_produk || '',
-      gambar_url: pi.produk?.gambar_url || null,
+      nama_produk: pi.produk_master?.nama_produk || '',
+      gambar_url: pi.produk_master?.gambar_url || null,
     }));
 
     res.json({
@@ -111,7 +111,7 @@ router.get('/queue/waiting-nfc', async (req, res, next) => {
     const items = await prisma.productItem.findMany({
       where,
       include: {
-        produk: {
+        produk_master: {
           include: {
             sub_kategori: {
               include: {
@@ -134,14 +134,14 @@ router.get('/queue/waiting-nfc', async (req, res, next) => {
       secret_code: pi.secret_code,
       status: pi.status,
       created_at: pi.created_at,
-      nama_produk: pi.produk?.nama_produk || '',
-      harga: pi.produk?.harga || 0,
-      warna: pi.produk?.warna || '',
-      tipe_artikel: pi.produk?.tipe_artikel || '',
-      tanggal_produksi: pi.produk?.tanggal_produksi || '',
-      gambar_url: pi.produk?.gambar_url || null,
-      nama_sub_kategori: pi.produk?.sub_kategori?.nama_sub_kategori || '',
-      nama_kategori: pi.produk?.sub_kategori?.kategori?.nama_kategori || '',
+      nama_produk: pi.produk_master?.nama_produk || '',
+      harga: pi.produk_master?.harga || 0,
+      warna: pi.produk_master?.warna || '',
+      tipe_artikel: pi.produk_master?.tipe_artikel || '',
+      tanggal_produksi: pi.produk_master?.tanggal_produksi || '',
+      gambar_url: pi.produk_master?.gambar_url || null,
+      nama_sub_kategori: pi.produk_master?.sub_kategori?.nama_sub_kategori || '',
+      nama_kategori: pi.produk_master?.sub_kategori?.kategori?.nama_kategori || '',
     }));
 
     res.json({
@@ -166,7 +166,7 @@ router.get('/:uuid', async (req, res, next) => {
     const item = await prisma.productItem.findUnique({
       where: { id_item: uuid },
       include: {
-        produk: {
+        produk_master: {
           include: {
             sub_kategori: {
               include: {
@@ -206,14 +206,14 @@ router.get('/:uuid', async (req, res, next) => {
       status: item.status,
       is_claimed: item.is_claimed,
       created_at: item.created_at,
-      nama_produk: item.produk?.nama_produk || '',
-      harga: item.produk?.harga || 0,
-      warna: item.produk?.warna || '',
-      tipe_artikel: item.produk?.tipe_artikel || '',
-      tanggal_produksi: item.produk?.tanggal_produksi || '',
-      gambar_url: item.produk?.gambar_url || null,
-      nama_sub_kategori: item.produk?.sub_kategori?.nama_sub_kategori || '',
-      nama_kategori: item.produk?.sub_kategori?.kategori?.nama_kategori || '',
+      nama_produk: item.produk_master?.nama_produk || '',
+      harga: item.produk_master?.harga || 0,
+      warna: item.produk_master?.warna || '',
+      tipe_artikel: item.produk_master?.tipe_artikel || '',
+      tanggal_produksi: item.produk_master?.tanggal_produksi || '',
+      gambar_url: item.produk_master?.gambar_url || null,
+      nama_sub_kategori: item.produk_master?.sub_kategori?.nama_sub_kategori || '',
+      nama_kategori: item.produk_master?.sub_kategori?.kategori?.nama_kategori || '',
     };
 
     const activeOwnership = item.kepemilikan[0] ? {
@@ -244,7 +244,7 @@ router.post('/:uuid/verify', async (req, res, next) => {
     const item = await prisma.productItem.findUnique({
       where: { id_item: uuid },
       include: {
-        produk: true,
+        produk_master: true,
         kepemilikan: {
           include: {
             konsumen: {
@@ -256,7 +256,7 @@ router.post('/:uuid/verify', async (req, res, next) => {
       },
     });
 
-    if (!item || !item.produk) {
+    if (!item || !item.produk_master) {
       return res.json({
         success: true,
         verified: false,
@@ -267,24 +267,24 @@ router.post('/:uuid/verify', async (req, res, next) => {
 
     // 2. Recompute hash from metadata
     let tglProduksi = '';
-    if (item.produk.tanggal_produksi instanceof Date) {
-      const d = item.produk.tanggal_produksi;
+    if (item.produk_master.tanggal_produksi instanceof Date) {
+      const d = item.produk_master.tanggal_produksi;
       const year = d.getFullYear();
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
       tglProduksi = `${year}-${month}-${day}`;
     } else {
-      tglProduksi = String(item.produk.tanggal_produksi || '').split('T')[0];
+      tglProduksi = String(item.produk_master.tanggal_produksi || '').split('T')[0];
     }
 
-    const hargaNormalized = String(item.produk.harga).replace(/\.00$/, '');
+    const hargaNormalized = String(item.produk_master.harga).replace(/\.00$/, '');
 
     const recomputedHash = generateMetadataHash({
       uuid: item.id_item,
-      nama_produk: item.produk.nama_produk,
+      nama_produk: item.produk_master.nama_produk,
       harga: hargaNormalized,
-      warna: item.produk.warna || '',
-      tipe_artikel: item.produk.tipe_artikel,
+      warna: item.produk_master.warna || '',
+      tipe_artikel: item.produk_master.tipe_artikel,
       tanggal_produksi: tglProduksi,
     });
 
@@ -350,11 +350,11 @@ router.post('/:uuid/verify', async (req, res, next) => {
       data: {
         product: {
           id_item: item.id_item,
-          nama_produk: item.produk.nama_produk,
-          harga: item.produk.harga,
-          warna: item.produk.warna,
-          tipe_artikel: item.produk.tipe_artikel,
-          tanggal_produksi: item.produk.tanggal_produksi,
+          nama_produk: item.produk_master.nama_produk,
+          harga: item.produk_master.harga,
+          warna: item.produk_master.warna,
+          tipe_artikel: item.produk_master.tipe_artikel,
+          tanggal_produksi: item.produk_master.tanggal_produksi,
           status: item.status,
         },
         hashes: {
@@ -405,7 +405,7 @@ router.post('/bind-nfc', async (req, res, next) => {
         hash_blockchain: { equals: cleanHash, mode: 'insensitive' },
       },
       include: {
-        produk: true,
+        produk_master: true,
       },
     });
 
@@ -481,11 +481,11 @@ router.post('/bind-nfc', async (req, res, next) => {
 
     res.json({
       success: true,
-      message: `Cip NFC (${rawUid}) berhasil diikat ke produk "${item.produk?.nama_produk}"! Status aktif.`,
+      message: `Cip NFC (${rawUid}) berhasil diikat ke produk "${item.produk_master?.nama_produk}"! Status aktif.`,
       data: {
         id_item: item.id_item,
         id_produk: item.id_produk,
-        nama_produk: item.produk?.nama_produk,
+        nama_produk: item.produk_master?.nama_produk,
         hash_blockchain: item.hash_blockchain,
         uid_fisik: rawUid,
         status: 'minted',
@@ -524,7 +524,7 @@ router.post('/verify-nfc', async (req, res, next) => {
         hash_blockchain: { equals: cleanHash, mode: 'insensitive' },
       },
       include: {
-        produk: {
+        produk_master: {
           include: {
             sub_kategori: {
               include: {
@@ -542,7 +542,7 @@ router.post('/verify-nfc', async (req, res, next) => {
       },
     });
 
-    if (!item || !item.produk) {
+    if (!item || !item.produk_master) {
       return res.status(404).json({
         success: false,
         verified: false,
@@ -562,7 +562,7 @@ router.post('/verify-nfc', async (req, res, next) => {
         message: 'PRODUK BELUM DIAKTIVASI — Cip NFC ini belum selesai diikat oleh pihak pabrik/brand.',
         data: {
           id_item: item.id_item,
-          nama_produk: item.produk.nama_produk,
+          nama_produk: item.produk_master.nama_produk,
           status: item.status,
         },
       });
@@ -579,7 +579,7 @@ router.post('/verify-nfc', async (req, res, next) => {
           action: 'SECURITY_ALERT_CLONE_ATTEMPT',
           detail: {
             id_item: item.id_item,
-            nama_produk: item.produk.nama_produk,
+            nama_produk: item.produk_master.nama_produk,
             registered_uid: item.uid_fisik,
             scanned_uid: rawUid,
             hash: cleanHash,
@@ -655,14 +655,14 @@ router.post('/verify-nfc', async (req, res, next) => {
       data: {
         product: {
           id_item: item.id_item,
-          nama_produk: item.produk.nama_produk,
-          harga: item.produk.harga,
-          warna: item.produk.warna,
-          tipe_artikel: item.produk.tipe_artikel,
-          tanggal_produksi: item.produk.tanggal_produksi,
-          gambar_url: item.produk.gambar_url,
-          nama_kategori: item.produk.sub_kategori?.kategori?.nama_kategori || '',
-          nama_sub_kategori: item.produk.sub_kategori?.nama_sub_kategori || '',
+          nama_produk: item.produk_master.nama_produk,
+          harga: item.produk_master.harga,
+          warna: item.produk_master.warna,
+          tipe_artikel: item.produk_master.tipe_artikel,
+          tanggal_produksi: item.produk_master.tanggal_produksi,
+          gambar_url: item.produk_master.gambar_url,
+          nama_kategori: item.produk_master.sub_kategori?.kategori?.nama_kategori || '',
+          nama_sub_kategori: item.produk_master.sub_kategori?.nama_sub_kategori || '',
           status: item.status,
           is_claimed: Boolean(item.is_claimed),
         },

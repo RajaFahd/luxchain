@@ -191,7 +191,7 @@ export default function DashboardPage() {
           </span>
         </div>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", minWidth: "600px" }}>
             <thead>
               <tr>
                 {["Item ID", "Wallet", "Produk", "Status", "Tanggal"].map((h) => (

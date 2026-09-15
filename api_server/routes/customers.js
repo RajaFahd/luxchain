@@ -71,33 +71,8 @@ router.post('/verify-wallet', async (req, res, next) => {
   }
 });
 
-// ===== Multer config for consumer profile photos =====
-const uploadsDir = path.join(__dirname, '..', 'public', 'uploads', 'profiles');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `profile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB max
-  fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
-    if (file.mimetype.startsWith('image/') || allowedExtensions.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(null, false);
-    }
-  },
-});
+// ===== Multer & Supabase Storage config for profile photos =====
+const { upload, uploadImageToSupabase } = require('../config/storage');
 
 /**
  * GET /api/customers
@@ -256,15 +231,16 @@ router.post('/update-avatar', upload.single('foto_profile'), async (req, res, ne
       });
     }
 
-    const relativePath = `/uploads/profiles/${req.file.filename}`;
+    // Upload to Supabase Storage 'foto_profile' as WebP
+    const publicUrl = await uploadImageToSupabase(req.file.buffer, 'foto_profile', 'profile');
 
     const updated = await prisma.konsumen.upsert({
       where: { wallet_address },
-      update: { foto_profile: relativePath },
+      update: { foto_profile: publicUrl },
       create: {
         wallet_address,
         nama_display: `User_${wallet_address.substring(0, 8)}`,
-        foto_profile: relativePath,
+        foto_profile: publicUrl,
       },
     });
 

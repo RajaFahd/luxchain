@@ -266,3 +266,15 @@ export async function getDashboardStats() {
     totalTransactions: transactions.pagination?.total || 0,
   };
 }
+
+/**
+ * Format image URL: supports both absolute URLs (e.g. Supabase Storage) and legacy relative uploads
+ */
+export function getMediaUrl(path: string | null | undefined): string {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  const baseUrl = API_BASE.replace(/\/api\/?$/, "");
+  return `${baseUrl}${path.startsWith("/") ? "" : "/"}${path}`;
+}
