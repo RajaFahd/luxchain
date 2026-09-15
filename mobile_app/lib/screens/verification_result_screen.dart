@@ -20,23 +20,70 @@ class _VerificationResultScreenState extends State<VerificationResultScreen> {
   ProductItem? _itemDetails;
   String? _error;
   String? _uuid;
+  String? _hash;
+  String? _uidFisik;
+  bool _isNfcScan = false;
+  bool _initialized = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_uuid == null) {
-      // Get UUID from route arguments
+    if (!_initialized) {
+      _initialized = true;
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       _uuid = args?['uuid'] as String?;
+      _hash = args?['hash'] as String?;
+      _uidFisik = args?['uid_fisik'] as String?;
 
-      if (_uuid != null) {
+      if (_hash != null && _uidFisik != null) {
+        _isNfcScan = true;
+        _fetchNfcVerification();
+      } else if (_uuid != null) {
         _fetchVerification();
       } else {
         setState(() {
           _isLoading = false;
-          _error = 'UUID produk tidak ditemukan.';
+          _error = 'Parameter verifikasi (UUID atau NFC) tidak ditemukan.';
         });
       }
+    }
+  }
+
+  Future<void> _fetchNfcVerification() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final provider = Provider.of<AppProvider>(context, listen: false);
+
+    try {
+      final verifyResult = await provider.verifyProductNfc(
+        hash: _hash!,
+        uidFisik: _uidFisik!,
+      );
+
+      if (!mounted) return;
+
+      ProductItem? itemDetail;
+      if (verifyResult?.product?.idItem != null) {
+        itemDetail = await provider.getItemDetails(verifyResult!.product!.idItem);
+      }
+
+      setState(() {
+        _isLoading = false;
+        _result = verifyResult;
+        _itemDetails = itemDetail;
+        if (verifyResult == null) {
+          _error = 'Gagal melakukan verifikasi NFC dengan server.';
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _error = 'Terjadi kesalahan saat memverifikasi: ${e.toString()}';
+      });
     }
   }
 
@@ -148,12 +195,29 @@ class _VerificationResultScreenState extends State<VerificationResultScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        verified ? 'PRODUK TERVERIFIKASI · BLOCKCHAIN' : 'PRODUK TIDAK TERVERIFIKASI',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: verified ? AppTheme.colors(context).success : AppTheme.colors(context).destructive, letterSpacing: 0.5),
+                        _isNfcScan
+                            ? (verified
+                                ? 'PRODUK TERVERIFIKASI MUTLAK · NFC + BLOCKCHAIN'
+                                : (_result?.status == 'CLONE_DETECTED'
+                                    ? '🚨 PERINGATAN: UPAYA KLONING DITOLAK'
+                                    : 'PRODUK TIDAK TERVERIFIKASI'))
+                            : (verified
+                                ? 'PRODUK TERVERIFIKASI · BLOCKCHAIN'
+                                : 'PRODUK TIDAK TERVERIFIKASI'),
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: verified ? AppTheme.colors(context).success : AppTheme.colors(context).destructive,
+                            letterSpacing: 0.5),
                       ),
                       Text(
-                        _result?.status ?? 'UNKNOWN',
-                        style: TextStyle(fontSize: 10, color: (verified ? AppTheme.colors(context).success : AppTheme.colors(context).destructive).withAlpha(179)),
+                        _result?.message.isNotEmpty == true
+                            ? _result!.message
+                            : (_result?.status ?? 'UNKNOWN'),
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: (verified ? AppTheme.colors(context).success : AppTheme.colors(context).destructive).withAlpha(200)),
                       ),
                     ],
                   ),
@@ -162,6 +226,57 @@ class _VerificationResultScreenState extends State<VerificationResultScreen> {
             ),
           ),
           const SizedBox(height: 20),
+
+          // ─── NFC Dual Validation Security Card ───
+          if (_isNfcScan) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: verified ? AppTheme.colors(context).card : AppTheme.colors(context).destructiveBg.withAlpha(50),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                border: Border.all(
+                  color: verified ? AppTheme.colors(context).border : AppTheme.colors(context).destructive,
+                  width: verified ? 1 : 1.5,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.nfc,
+                        size: 20,
+                        color: verified ? AppTheme.colors(context).accent : AppTheme.colors(context).destructive,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'LAPISAN KEAMANAN CIP NFC FISIK (ANTI-KLONING)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                          color: verified ? AppTheme.colors(context).foreground : AppTheme.colors(context).destructive,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDetailRow('UID Fisik Terbaca:', _uidFisik ?? '-'),
+                  _buildDetailRow(
+                    '1. Validasi Lokal (Anti-Kloning):',
+                    verified ? 'LOLOS (UID Fisik Pabrik Cocok ✓)' : 'GAGAL (Upaya Kloning Terdeteksi ✗)',
+                  ),
+                  _buildDetailRow(
+                    '2. Validasi Global (Sepolia):',
+                    verified ? 'LOLOS (On-Chain Hash Sah ✓)' : 'GAGAL (Hash Tidak Cocok ✗)',
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           // ─── Product Info Card ───
           Container(
@@ -475,6 +590,41 @@ class _VerificationResultScreenState extends State<VerificationResultScreen> {
         Text(label, style: TextStyle(fontSize: 13, color: AppTheme.colors(context).mutedForeground)),
         Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, fontFamily: 'RobotoMono', color: AppTheme.colors(context).foreground)),
       ],
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            flex: 4,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.colors(context).mutedForeground,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 6,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.colors(context).foreground,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

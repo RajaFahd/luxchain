@@ -1,0 +1,128 @@
+// ============================================================
+// LUXCHAIN — Prisma Schema for PostgreSQL (Supabase)
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum ProductStatus {
+  pending
+  waiting_nfc
+  minted
+  sold
+}
+
+enum KepemilikanStatus {
+  active
+  transferred
+}
+
+model Admin {
+  id_admin       Int            @id @default(autoincrement())
+  email          String         @unique @db.VarChar(255)
+  password       String         @db.VarChar(255)
+  wallet_address String?        @db.VarChar(42)
+  created_at     DateTime       @default(now())
+  produk_master  ProdukMaster[]
+
+  @@map("admin")
+}
+
+model Kategori {
+  id_kategori   Int           @id @default(autoincrement())
+  nama_kategori String        @db.VarChar(100)
+  sub_kategori  SubKategori[]
+
+  @@map("kategori")
+}
+
+model SubKategori {
+  id_sub_kategori   Int            @id @default(autoincrement())
+  id_kategori       Int
+  nama_sub_kategori String         @db.VarChar(100)
+  kategori          Kategori       @relation(fields: [id_kategori], references: [id_kategori], onDelete: Cascade)
+  produk_master     ProdukMaster[]
+
+  @@map("sub_kategori")
+}
+
+model ProdukMaster {
+  id_produk        Int           @id @default(autoincrement())
+  id_sub_kategori  Int?
+  id_admin         Int?
+  nama_produk      String        @db.VarChar(255)
+  harga            Decimal       @default(0) @db.Decimal(15, 2)
+  warna            String?       @db.VarChar(100)
+  tipe_artikel     String?       @db.VarChar(100)
+  tanggal_produksi DateTime?     @db.Date
+  gambar_url       String?       @db.VarChar(500)
+  created_at       DateTime      @default(now())
+
+  sub_kategori     SubKategori?  @relation(fields: [id_sub_kategori], references: [id_sub_kategori], onDelete: SetNull)
+  admin            Admin?        @relation(fields: [id_admin], references: [id_admin], onDelete: SetNull)
+  product_items    ProductItem[]
+
+  @@map("produk_master")
+}
+
+model ProductItem {
+  id_item         String        @id @db.VarChar(36)
+  id_produk       Int
+  hash_blockchain String        @db.VarChar(64)
+  tx_hash         String?       @db.VarChar(66)
+  secret_code     String        @db.VarChar(12)
+  uid_fisik       String?       @db.VarChar(100)
+  status          ProductStatus @default(pending)
+  is_claimed      Boolean       @default(false)
+  created_at      DateTime      @default(now())
+
+  produk_master   ProdukMaster  @relation(fields: [id_produk], references: [id_produk], onDelete: Cascade)
+  kepemilikan     Kepemilikan[]
+
+  @@index([uid_fisik])
+  @@index([hash_blockchain])
+  @@map("product_item")
+}
+
+model Konsumen {
+  wallet_address String        @id @db.VarChar(42)
+  nama_display   String?       @db.VarChar(255)
+  foto_profile   String?       @db.VarChar(255)
+  join_date      DateTime      @default(now())
+  kepemilikan    Kepemilikan[]
+
+  @@map("konsumen")
+}
+
+model Kepemilikan {
+  id_kepemilikan     Int               @id @default(autoincrement())
+  id_item            String            @db.VarChar(36)
+  wallet_address     String            @db.VarChar(42)
+  tanggal_klaim      DateTime          @default(now())
+  status_kepemilikan KepemilikanStatus @default(active)
+  tx_hash            String?           @db.VarChar(66)
+  created_at         DateTime          @default(now())
+
+  product_item       ProductItem       @relation(fields: [id_item], references: [id_item], onDelete: Cascade)
+  konsumen           Konsumen          @relation(fields: [wallet_address], references: [wallet_address], onDelete: Cascade)
+
+  @@index([id_item])
+  @@index([wallet_address])
+  @@map("kepemilikan")
+}
+
+model SystemLog {
+  id_log     Int      @id @default(autoincrement())
+  action     String   @db.VarChar(50)
+  detail     Json?
+  created_at DateTime @default(now())
+
+  @@map("system_log")
+}

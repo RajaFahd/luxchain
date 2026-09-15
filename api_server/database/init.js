@@ -55,10 +55,12 @@ CREATE TABLE IF NOT EXISTS product_item (
   hash_blockchain VARCHAR(64) NOT NULL,
   tx_hash VARCHAR(66) NULL,
   secret_code VARCHAR(12) NOT NULL,
-  status ENUM('pending', 'minted', 'sold') DEFAULT 'pending',
+  uid_fisik VARCHAR(100) NULL,
+  status ENUM('pending', 'waiting_nfc', 'minted', 'sold') DEFAULT 'pending',
   is_claimed BOOLEAN DEFAULT FALSE,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (id_produk) REFERENCES produk_master(id_produk) ON DELETE CASCADE
+  FOREIGN KEY (id_produk) REFERENCES produk_master(id_produk) ON DELETE CASCADE,
+  INDEX idx_uid_fisik (uid_fisik)
 ) ENGINE=InnoDB;
 
 -- 6. Konsumen table

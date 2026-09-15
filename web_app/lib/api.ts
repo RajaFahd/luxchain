@@ -173,6 +173,29 @@ export async function verifyItem(uuid: string) {
   return res.json();
 }
 
+// ─── NFC Operations ───
+export async function getWaitingNfcQueue(id_produk?: number) {
+  const query = id_produk ? `?id_produk=${id_produk}` : "";
+  const res = await apiFetch(`/items/queue/waiting-nfc${query}`);
+  return res.json();
+}
+
+export async function bindNfcItem(payload: { hash: string; uid_fisik: string }) {
+  const res = await apiFetch("/items/bind-nfc", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+export async function verifyNfcItem(payload: { hash: string; uid_fisik: string }) {
+  const res = await apiFetch("/items/verify-nfc", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
 // ─── System logs ───
 export async function getSystemLogs(params?: {
   action?: string;

@@ -6,7 +6,8 @@ class ProductItem {
   final String idItem;         // UUID v4
   final int idProduk;
   final String hashBlockchain;
-  final String status;         // 'pending', 'minted', 'sold'
+  final String? uidFisik;
+  final String status;         // 'pending', 'waiting_nfc', 'minted', 'sold'
   final bool isClaimed;
   final String? createdAt;
 
@@ -26,6 +27,7 @@ class ProductItem {
     required this.idItem,
     required this.idProduk,
     required this.hashBlockchain,
+    this.uidFisik,
     required this.status,
     required this.isClaimed,
     this.createdAt,
@@ -44,6 +46,7 @@ class ProductItem {
       idItem: json['id_item'] ?? '',
       idProduk: json['id_produk'] ?? 0,
       hashBlockchain: json['hash_blockchain'] ?? '',
+      uidFisik: json['uid_fisik'],
       status: json['status'] ?? 'pending',
       isClaimed: json['is_claimed'] == true || json['is_claimed'] == 1,
       createdAt: json['created_at']?.toString(),
@@ -111,20 +114,24 @@ class OwnershipHistoryItem {
 
 class VerificationResult {
   final bool verified;
-  final String status;       // 'VERIFIED', 'VERIFIED_OFFLINE', 'HASH_MISMATCH', 'PENDING', 'NOT_FOUND'
+  final String status;
+  final String? securityCheck;
   final String message;
   final VerifiedProduct? product;
   final HashComparison? hashes;
   final BlockchainData? blockchain;
+  final NfcValidationData? nfc;
   final List<OwnershipHistoryItem> ownershipHistory;
 
   VerificationResult({
     required this.verified,
     required this.status,
+    this.securityCheck,
     required this.message,
     this.product,
     this.hashes,
     this.blockchain,
+    this.nfc,
     required this.ownershipHistory,
   });
 
@@ -134,6 +141,7 @@ class VerificationResult {
     return VerificationResult(
       verified: json['verified'] ?? false,
       status: json['status'] ?? 'UNKNOWN',
+      securityCheck: json['security_check'],
       message: json['message'] ?? '',
       product: data?['product'] != null
           ? VerifiedProduct.fromJson(data!['product'])
@@ -144,9 +152,32 @@ class VerificationResult {
       blockchain: data?['blockchain'] != null
           ? BlockchainData.fromJson(data!['blockchain'])
           : null,
+      nfc: data?['nfc'] != null
+          ? NfcValidationData.fromJson(data!['nfc'])
+          : null,
       ownershipHistory: (data?['ownershipHistory'] as List<dynamic>? ?? [])
           .map((e) => OwnershipHistoryItem.fromJson(e as Map<String, dynamic>))
           .toList(),
+    );
+  }
+}
+
+class NfcValidationData {
+  final String uidFisik;
+  final bool hardwareMatched;
+  final bool antiClonePassed;
+
+  NfcValidationData({
+    required this.uidFisik,
+    required this.hardwareMatched,
+    required this.antiClonePassed,
+  });
+
+  factory NfcValidationData.fromJson(Map<String, dynamic> json) {
+    return NfcValidationData(
+      uidFisik: json['uid_fisik'] ?? '',
+      hardwareMatched: json['hardware_matched'] ?? false,
+      antiClonePassed: json['anti_clone_passed'] ?? false,
     );
   }
 }

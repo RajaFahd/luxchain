@@ -43,6 +43,7 @@ dependencies:
   mobile_scanner: ^7.0.0         # QR code scanning (camera)
   url_launcher: ^6.3.0           # Open Etherscan links
   image_picker: ^1.2.2
+  nfc_manager: ^3.3.0            # Dual NFC chip scanner & NDEF extraction
 
 dev_dependencies:
   flutter_test:

@@ -32,7 +32,8 @@
 - `hash_blockchain`: VARCHAR (64)
 - `tx_hash`: VARCHAR(66), nullable — transaction hash dari Sepolia Etherscan
 - `secret_code`: VARCHAR(12) — kode scratch card untuk klaim
-- `status`: ENUM('pending', 'minted', 'sold')
+- `uid_fisik`: VARCHAR(100), nullable — factory UID fisik dari cip NFC yang di-binding
+- `status`: ENUM('pending', 'waiting_nfc', 'minted', 'sold')
 - `is_claimed`: BOOLEAN, default FALSE
 - `created_at`: DATETIME
 

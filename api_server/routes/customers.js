@@ -10,7 +10,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { ethers } = require('ethers');
-const { pool } = require('../config/database');
+const { prisma } = require('../config/prisma');
 
 /**
  * POST /api/customers/verify-wallet
@@ -111,95 +111,69 @@ router.get('/', async (req, res, next) => {
     const parsedLimit = parseInt(limit);
     const offset = (parsedPage - 1) * parsedLimit;
 
-    let query = `
-      SELECT
-        k.wallet_address,
-        k.nama_display,
-        k.foto_profile,
-        k.join_date,
-        (SELECT COUNT(*) FROM kepemilikan WHERE wallet_address = k.wallet_address AND status_kepemilikan = 'active') as active_items,
-        (SELECT COUNT(*) FROM kepemilikan WHERE wallet_address = k.wallet_address) as total_transactions
-       FROM konsumen k
-    `;
-
-    const params = [];
-    const conditions = [];
-
+    // Fetch all customers with kepemilikan count
+    const where = {};
     if (search) {
-      conditions.push('(k.wallet_address LIKE ? OR k.nama_display LIKE ?)');
-      const s = `%${search}%`;
-      params.push(s, s);
+      where.OR = [
+        { wallet_address: { contains: search, mode: 'insensitive' } },
+        { nama_display: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
+    const customers = await prisma.konsumen.findMany({
+      where,
+      include: {
+        kepemilikan: true,
+      },
+      orderBy: {
+        join_date: 'desc',
+      },
+    });
 
-    const havingConditions = [];
+    // Format & compute aggregated counts
+    let data = customers.map(c => {
+      const activeItems = c.kepemilikan.filter(k => k.status_kepemilikan === 'active').length;
+      const totalTx = c.kepemilikan.length;
+      return {
+        wallet_address: c.wallet_address,
+        nama_display: c.nama_display,
+        foto_profile: c.foto_profile,
+        join_date: c.join_date,
+        active_items: activeItems,
+        total_transactions: totalTx,
+      };
+    });
+
+    // Apply min_assets and min_tx filters
     if (min_assets) {
-      havingConditions.push('active_items >= ?');
-      params.push(parseInt(min_assets));
+      data = data.filter(c => c.active_items >= parseInt(min_assets));
     }
     if (min_tx) {
-      havingConditions.push('total_transactions >= ?');
-      params.push(parseInt(min_tx));
+      data = data.filter(c => c.total_transactions >= parseInt(min_tx));
     }
 
-    if (havingConditions.length > 0) {
-      query += ' HAVING ' + havingConditions.join(' AND ');
-    }
-
+    // Sorting
     if (sort_by === 'assets_desc') {
-      query += ' ORDER BY active_items DESC';
+      data.sort((a, b) => b.active_items - a.active_items);
     } else if (sort_by === 'assets_asc') {
-      query += ' ORDER BY active_items ASC';
+      data.sort((a, b) => a.active_items - b.active_items);
     } else if (sort_by === 'tx_desc') {
-      query += ' ORDER BY total_transactions DESC';
+      data.sort((a, b) => b.total_transactions - a.total_transactions);
     } else if (sort_by === 'tx_asc') {
-      query += ' ORDER BY total_transactions ASC';
-    } else {
-      query += ' ORDER BY k.join_date DESC';
+      data.sort((a, b) => a.total_transactions - b.total_transactions);
     }
 
-    // Clone params for count query
-    const countParams = [...params];
-
-    let countQuery;
-    if (havingConditions.length > 0) {
-      countQuery = `
-        SELECT COUNT(*) as total FROM (
-          SELECT
-            k.wallet_address,
-            (SELECT COUNT(*) FROM kepemilikan WHERE wallet_address = k.wallet_address AND status_kepemilikan = 'active') as active_items,
-            (SELECT COUNT(*) FROM kepemilikan WHERE wallet_address = k.wallet_address) as total_transactions
-          FROM konsumen k
-          ${conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : ''}
-          HAVING ${havingConditions.join(' AND ')}
-        ) as temp
-      `;
-    } else {
-      countQuery = `
-        SELECT COUNT(*) as total
-        FROM konsumen k
-      `;
-      if (conditions.length > 0) {
-        countQuery += ' WHERE ' + conditions.join(' AND ');
-      }
-    }
-
-    query += ' LIMIT ? OFFSET ?';
-
-    const [rows] = await pool.query(query, [...params, parsedLimit, offset]);
-    const [countResult] = await pool.query(countQuery, countParams);
+    const total = data.length;
+    const paginated = data.slice(offset, offset + parsedLimit);
 
     res.json({
       success: true,
-      data: rows,
+      data: paginated,
       pagination: {
         page: parsedPage,
         limit: parsedLimit,
-        total: countResult[0]?.total || 0,
-        totalPages: Math.ceil((countResult[0]?.total || 0) / parsedLimit),
+        total,
+        totalPages: Math.ceil(total / parsedLimit),
       },
     });
   } catch (error) {
@@ -230,32 +204,21 @@ router.post('/update', async (req, res, next) => {
       });
     }
 
-    // Check if consumer exists
-    const [existing] = await pool.execute(
-      'SELECT * FROM konsumen WHERE wallet_address = ?',
-      [wallet_address]
-    );
-
-    if (existing.length === 0) {
-      // Create new profile
-      await pool.execute(
-        'INSERT INTO konsumen (wallet_address, nama_display, join_date) VALUES (?, ?, NOW())',
-        [wallet_address, nama_display]
-      );
-    } else {
-      // Update existing profile
-      await pool.execute(
-        'UPDATE konsumen SET nama_display = ? WHERE wallet_address = ?',
-        [nama_display, wallet_address]
-      );
-    }
+    const updated = await prisma.konsumen.upsert({
+      where: { wallet_address },
+      update: { nama_display: nama_display.trim() },
+      create: {
+        wallet_address,
+        nama_display: nama_display.trim(),
+      },
+    });
 
     res.json({
       success: true,
       message: 'Display name updated successfully!',
       data: {
-        wallet_address,
-        nama_display,
+        wallet_address: updated.wallet_address,
+        nama_display: updated.nama_display,
       },
     });
   } catch (error) {
@@ -295,32 +258,22 @@ router.post('/update-avatar', upload.single('foto_profile'), async (req, res, ne
 
     const relativePath = `/uploads/profiles/${req.file.filename}`;
 
-    // Check if consumer exists
-    const [existing] = await pool.execute(
-      'SELECT * FROM konsumen WHERE wallet_address = ?',
-      [wallet_address]
-    );
-
-    if (existing.length === 0) {
-      // Create new profile with picture
-      await pool.execute(
-        'INSERT INTO konsumen (wallet_address, nama_display, foto_profile, join_date) VALUES (?, ?, ?, NOW())',
-        [wallet_address, `User_${wallet_address.substring(0, 8)}`, relativePath]
-      );
-    } else {
-      // Update existing profile picture
-      await pool.execute(
-        'UPDATE konsumen SET foto_profile = ? WHERE wallet_address = ?',
-        [relativePath, wallet_address]
-      );
-    }
+    const updated = await prisma.konsumen.upsert({
+      where: { wallet_address },
+      update: { foto_profile: relativePath },
+      create: {
+        wallet_address,
+        nama_display: `User_${wallet_address.substring(0, 8)}`,
+        foto_profile: relativePath,
+      },
+    });
 
     res.json({
       success: true,
       message: 'Profile photo updated successfully!',
       data: {
-        wallet_address,
-        foto_profile: relativePath,
+        wallet_address: updated.wallet_address,
+        foto_profile: updated.foto_profile,
       },
     });
   } catch (error) {

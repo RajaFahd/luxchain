@@ -15,7 +15,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
-const { pool } = require('../config/database');
+const { prisma } = require('../config/prisma');
 const { authMiddleware } = require('../middleware/auth');
 const { generateMetadataHash } = require('../utils/hash');
 const { generateQRCode } = require('../utils/qrcode');
@@ -36,18 +36,18 @@ function generateSecretCode() {
 
 // ===== Helper to check if admin wallet is authorized for minting =====
 async function checkAdminWalletAuthorization(id_admin) {
-  const [adminRows] = await pool.execute(
-    'SELECT wallet_address FROM admin WHERE id_admin = ?',
-    [id_admin]
-  );
+  const admin = await prisma.admin.findUnique({
+    where: { id_admin },
+    select: { wallet_address: true },
+  });
   
-  if (adminRows.length === 0) {
+  if (!admin) {
     const err = new Error('Admin tidak ditemukan.');
     err.status = 404;
     throw err;
   }
   
-  const walletAddress = adminRows[0].wallet_address;
+  const walletAddress = admin.wallet_address;
   if (!walletAddress || walletAddress === '0x0000000000000000000000000000000000000000') {
     const err = new Error('Akses ditolak: Anda harus menghubungkan wallet MetaMask terlebih dahulu di dashboard untuk melakukan minting.');
     err.status = 400;
@@ -112,111 +112,121 @@ router.get('/', authMiddleware, async (req, res, next) => {
     
     const parsedPage = parseInt(page);
     const parsedLimit = parseInt(limit);
-    const offset = (parsedPage - 1) * parsedLimit;
+    const skip = (parsedPage - 1) * parsedLimit;
 
-    // Base clauses
-    const selectClause = `
-      SELECT
-        pm.*,
-        sk.nama_sub_kategori,
-        k.nama_kategori,
-        a.email as admin_email,
-        COUNT(pi.id_item) as total_items,
-        SUM(CASE WHEN pi.status = 'minted' THEN 1 ELSE 0 END) as minted_items,
-        SUM(CASE WHEN pi.status = 'sold' THEN 1 ELSE 0 END) as sold_items
-    `;
+    // Build Prisma where conditions
+    const where = {};
 
-    const fromClause = `
-      FROM produk_master pm
-      LEFT JOIN sub_kategori sk ON pm.id_sub_kategori = sk.id_sub_kategori
-      LEFT JOIN kategori k ON sk.id_kategori = k.id_kategori
-      LEFT JOIN admin a ON pm.id_admin = a.id_admin
-      LEFT JOIN product_item pi ON pm.id_produk = pi.id_produk
-    `;
-
-    const params = [];
-    const conditions = [];
-
-    // ─── Search (Across all columns) ───
-    if (search) {
-      conditions.push(`(
-        pm.id_produk LIKE ? OR
-        pm.nama_produk LIKE ? OR
-        pm.tipe_artikel LIKE ? OR
-        pm.warna LIKE ? OR
-        pm.harga LIKE ? OR
-        k.nama_kategori LIKE ? OR
-        sk.nama_sub_kategori LIKE ? OR
-        a.email LIKE ?
-      )`);
-      const s = `%${search}%`;
-      params.push(s, s, s, s, s, s, s, s);
-    }
-
-    // ─── Filters ───
     if (kategori) {
-      conditions.push('k.id_kategori = ?');
-      params.push(parseInt(kategori));
+      where.sub_kategori = {
+        id_kategori: parseInt(kategori),
+      };
     }
+
     if (sub_kategori) {
-      conditions.push('sk.id_sub_kategori = ?');
-      params.push(parseInt(sub_kategori));
+      where.id_sub_kategori = parseInt(sub_kategori);
     }
-    if (min_harga) {
-      conditions.push('pm.harga >= ?');
-      params.push(parseFloat(min_harga));
+
+    if (min_harga || max_harga) {
+      where.harga = {};
+      if (min_harga) where.harga.gte = parseFloat(min_harga);
+      if (max_harga) where.harga.lte = parseFloat(max_harga);
     }
-    if (max_harga) {
-      conditions.push('pm.harga <= ?');
-      params.push(parseFloat(max_harga));
-    }
+
     if (warna) {
-      conditions.push('pm.warna = ?');
-      params.push(warna);
+      where.warna = warna;
     }
 
-    let whereClause = '';
-    if (conditions.length > 0) {
-      whereClause = ' WHERE ' + conditions.join(' AND ');
+    if (search) {
+      where.OR = [
+        { nama_produk: { contains: search, mode: 'insensitive' } },
+        { tipe_artikel: { contains: search, mode: 'insensitive' } },
+        { warna: { contains: search, mode: 'insensitive' } },
+        {
+          sub_kategori: {
+            OR: [
+              { nama_sub_kategori: { contains: search, mode: 'insensitive' } },
+              { kategori: { nama_kategori: { contains: search, mode: 'insensitive' } } },
+            ],
+          },
+        },
+        { admin: { email: { contains: search, mode: 'insensitive' } } },
+      ];
     }
 
-    // ─── HAVING for status ───
-    let havingClause = '';
+    // Fetch products matching basic criteria
+    const products = await prisma.produkMaster.findMany({
+      where,
+      include: {
+        sub_kategori: {
+          include: {
+            kategori: true,
+          },
+        },
+        admin: {
+          select: {
+            email: true,
+          },
+        },
+        items: true,
+      },
+      orderBy: {
+        id_produk: 'desc',
+      },
+    });
+
+    // Format & aggregate item counts
+    let formatted = products.map(pm => {
+      const items = pm.items || [];
+      const totalItems = items.length;
+      const waitingNfcItems = items.filter(i => i.status === 'waiting_nfc').length;
+      const mintedItems = items.filter(i => i.status === 'minted').length;
+      const soldItems = items.filter(i => i.status === 'sold').length;
+
+      return {
+        id_produk: pm.id_produk,
+        id_sub_kategori: pm.id_sub_kategori,
+        id_admin: pm.id_admin,
+        nama_produk: pm.nama_produk,
+        harga: pm.harga,
+        warna: pm.warna,
+        tipe_artikel: pm.tipe_artikel,
+        tanggal_produksi: pm.tanggal_produksi,
+        gambar_url: pm.gambar_url,
+        nama_sub_kategori: pm.sub_kategori?.nama_sub_kategori || '',
+        nama_kategori: pm.sub_kategori?.kategori?.nama_kategori || '',
+        admin_email: pm.admin?.email || '',
+        total_items: totalItems,
+        waiting_nfc_items: waitingNfcItems,
+        minted_items: mintedItems,
+        sold_items: soldItems,
+      };
+    });
+
+    // Filter by product status if requested
     if (status) {
       if (status === 'sold') {
-        havingClause = ' HAVING SUM(CASE WHEN pi.status = "sold" THEN 1 ELSE 0 END) > 0';
+        formatted = formatted.filter(p => p.sold_items > 0);
       } else if (status === 'minted') {
-        havingClause = ' HAVING SUM(CASE WHEN pi.status = "minted" THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN pi.status = "sold" THEN 1 ELSE 0 END) = 0';
+        formatted = formatted.filter(p => p.minted_items > 0 && p.sold_items === 0);
+      } else if (status === 'waiting_nfc') {
+        formatted = formatted.filter(p => p.waiting_nfc_items > 0);
       } else if (status === 'pending') {
-        havingClause = ' HAVING SUM(CASE WHEN pi.status = "sold" THEN 1 ELSE 0 END) = 0 AND SUM(CASE WHEN pi.status = "minted" THEN 1 ELSE 0 END) = 0';
+        formatted = formatted.filter(p => p.sold_items === 0 && p.minted_items === 0 && p.waiting_nfc_items === 0);
       }
     }
 
-    // ─── Full Queries ───
-    const mainQuery = selectClause + fromClause + whereClause + ' GROUP BY pm.id_produk ' + havingClause + ' ORDER BY pm.id_produk DESC LIMIT ? OFFSET ?';
-    
-    let countQuery;
-    let countParams;
-
-    if (havingClause) {
-      countQuery = `SELECT COUNT(*) as total FROM (SELECT pm.id_produk ${fromClause} ${whereClause} GROUP BY pm.id_produk ${havingClause}) as temp`;
-      countParams = [...params];
-    } else {
-      countQuery = `SELECT COUNT(DISTINCT pm.id_produk) as total ${fromClause} ${whereClause}`;
-      countParams = [...params];
-    }
-
-    const [rows] = await pool.query(mainQuery, [...params, parsedLimit, offset]);
-    const [countResult] = await pool.query(countQuery, countParams);
+    const total = formatted.length;
+    const paginated = formatted.slice(skip, skip + parsedLimit);
 
     res.json({
       success: true,
-      data: rows,
+      data: paginated,
       pagination: {
         page: parsedPage,
         limit: parsedLimit,
-        total: countResult[0]?.total || 0,
-        totalPages: Math.ceil((countResult[0]?.total || 0) / parsedLimit),
+        total,
+        totalPages: Math.ceil(total / parsedLimit),
       },
     });
   } catch (error) {
@@ -230,37 +240,40 @@ router.get('/', authMiddleware, async (req, res, next) => {
  */
 router.get('/:id', authMiddleware, async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id);
 
-    // Get product master
-    const [products] = await pool.execute(
-      `SELECT pm.*, sk.nama_sub_kategori, k.nama_kategori, a.email as admin_email
-       FROM produk_master pm
-       LEFT JOIN sub_kategori sk ON pm.id_sub_kategori = sk.id_sub_kategori
-       LEFT JOIN kategori k ON sk.id_kategori = k.id_kategori
-       LEFT JOIN admin a ON pm.id_admin = a.id_admin
-       WHERE pm.id_produk = ?`,
-      [id]
-    );
+    const product = await prisma.produkMaster.findUnique({
+      where: { id_produk: id },
+      include: {
+        sub_kategori: {
+          include: {
+            kategori: true,
+          },
+        },
+        admin: {
+          select: { email: true },
+        },
+        items: {
+          orderBy: { created_at: 'desc' },
+        },
+      },
+    });
 
-    if (products.length === 0) {
+    if (!product) {
       return res.status(404).json({
         success: false,
         message: 'Product not found.',
       });
     }
 
-    // Get all items for this product
-    const [items] = await pool.execute(
-      'SELECT * FROM product_item WHERE id_produk = ? ORDER BY created_at DESC',
-      [id]
-    );
-
     res.json({
       success: true,
       data: {
-        ...products[0],
-        items,
+        ...product,
+        nama_sub_kategori: product.sub_kategori?.nama_sub_kategori || '',
+        nama_kategori: product.sub_kategori?.kategori?.nama_kategori || '',
+        admin_email: product.admin?.email || '',
+        items: product.items,
       },
     });
   } catch (error) {
@@ -311,55 +324,50 @@ router.post('/', authMiddleware, upload.single('gambar'), async (req, res, next)
     const gambar_url = req.file ? `/uploads/products/${req.file.filename}` : null;
 
     // Resolve or create Kategori
-    let [kategoriRows] = await pool.execute(
-      'SELECT id_kategori FROM kategori WHERE nama_kategori = ?',
-      [nama_kategori]
-    );
-    let id_kategori;
-    if (kategoriRows.length > 0) {
-      id_kategori = kategoriRows[0].id_kategori;
-    } else {
-      const [insertK] = await pool.execute(
-        'INSERT INTO kategori (nama_kategori) VALUES (?)',
-        [nama_kategori]
-      );
-      id_kategori = insertK.insertId;
+    let kategori = await prisma.kategori.findFirst({
+      where: { nama_kategori: nama_kategori.trim() },
+    });
+    if (!kategori) {
+      kategori = await prisma.kategori.create({
+        data: { nama_kategori: nama_kategori.trim() },
+      });
     }
 
     // Resolve or create SubKategori
-    let [subRows] = await pool.execute(
-      'SELECT id_sub_kategori FROM sub_kategori WHERE nama_sub_kategori = ? AND id_kategori = ?',
-      [nama_sub_kategori, id_kategori]
-    );
-    let id_sub_kategori;
-    if (subRows.length > 0) {
-      id_sub_kategori = subRows[0].id_sub_kategori;
-    } else {
-      const [insertSK] = await pool.execute(
-        'INSERT INTO sub_kategori (id_kategori, nama_sub_kategori) VALUES (?, ?)',
-        [id_kategori, nama_sub_kategori]
-      );
-      id_sub_kategori = insertSK.insertId;
+    let subKategori = await prisma.subKategori.findFirst({
+      where: {
+        nama_sub_kategori: nama_sub_kategori.trim(),
+        id_kategori: kategori.id_kategori,
+      },
+    });
+    if (!subKategori) {
+      subKategori = await prisma.subKategori.create({
+        data: {
+          id_kategori: kategori.id_kategori,
+          nama_sub_kategori: nama_sub_kategori.trim(),
+        },
+      });
     }
 
-    // Create ProdukMaster with gambar_url
-    const [result] = await pool.execute(
-      `INSERT INTO produk_master
-        (id_sub_kategori, id_admin, nama_produk, harga, warna, tipe_artikel, tanggal_produksi, gambar_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id_sub_kategori,
-        req.admin.id_admin,
-        nama_produk,
-        harga,
-        warna || null,
-        tipe_artikel,
-        tanggal_produksi || new Date().toISOString().split('T')[0],
-        gambar_url,
-      ]
-    );
+    // Parse date safely
+    const prodDateStr = tanggal_produksi || new Date().toISOString().split('T')[0];
+    const prodDate = new Date(prodDateStr);
 
-    const id_produk = result.insertId;
+    // Create ProdukMaster with gambar_url
+    const productMaster = await prisma.produkMaster.create({
+      data: {
+        id_sub_kategori: subKategori.id_sub_kategori,
+        id_admin: req.admin.id_admin,
+        nama_produk: nama_produk.trim(),
+        harga: parseFloat(harga),
+        warna: warna ? warna.trim() : null,
+        tipe_artikel: tipe_artikel.trim(),
+        tanggal_produksi: prodDate,
+        gambar_url,
+      },
+    });
+
+    const id_produk = productMaster.id_produk;
     const parsedQty = Math.min(Math.max(parseInt(quantity) || 1, 1), 100); // minimum 1, cap at 100
 
     // ─── Auto-generate items + auto-mint to blockchain ───
@@ -376,18 +384,22 @@ router.post('/', authMiddleware, upload.single('gambar'), async (req, res, next)
         harga: String(harga),
         warna: warna || '',
         tipe_artikel,
-        tanggal_produksi: String(tanggal_produksi || new Date().toISOString().split('T')[0]),
+        tanggal_produksi: prodDateStr,
       });
 
       const secretCode = generateSecretCode();
       const qrResult = await generateQRCode(itemUuid, secretCode);
 
       // Insert item as 'pending' first
-      await pool.execute(
-        `INSERT INTO product_item (id_item, id_produk, hash_blockchain, secret_code, status, created_at)
-         VALUES (?, ?, ?, ?, 'pending', NOW())`,
-        [itemUuid, id_produk, metadataHash, secretCode]
-      );
+      await prisma.productItem.create({
+        data: {
+          id_item: itemUuid,
+          id_produk,
+          hash_blockchain: metadataHash,
+          secret_code: secretCode,
+          status: 'pending',
+        },
+      });
 
       let txHash = null;
       let tokenId = null;
@@ -414,25 +426,31 @@ router.post('/', authMiddleware, upload.single('gambar'), async (req, res, next)
             tokenId = parsed.args.tokenId.toString();
           }
 
-          // Update item status to 'minted' and save tx_hash
-          await pool.execute(
-            "UPDATE product_item SET status = 'minted', tx_hash = ? WHERE id_item = ?",
-            [txHash, itemUuid]
-          );
-          itemStatus = 'minted';
+          // Update item status to 'waiting_nfc' (ready for NFC chip binding) and save tx_hash
+          await prisma.productItem.update({
+            where: { id_item: itemUuid },
+            data: {
+              status: 'waiting_nfc',
+              tx_hash: txHash,
+            },
+          });
+          itemStatus = 'waiting_nfc';
           mintedCount++;
 
           // Log to system_log
-          await pool.execute(
-            `INSERT INTO system_log (action, detail, created_at) VALUES ('MINT', ?, NOW())`,
-            [JSON.stringify({
-              id_item: itemUuid,
-              id_produk,
-              tx_hash: txHash,
-              token_id: tokenId,
-              admin: req.admin.email,
-            })]
-          ).catch(() => { /* system_log table may not exist yet */ });
+          await prisma.systemLog.create({
+            data: {
+              action: 'MINT',
+              detail: {
+                id_item: itemUuid,
+                id_produk,
+                tx_hash: txHash,
+                token_id: tokenId,
+                status: 'waiting_nfc',
+                admin: req.admin.email,
+              },
+            },
+          }).catch(() => {});
 
         } catch (blockchainError) {
           // Blockchain failed for this item — keep as pending, continue with next
@@ -440,12 +458,12 @@ router.post('/', authMiddleware, upload.single('gambar'), async (req, res, next)
           failedCount++;
         }
       } else {
-        // No blockchain — mark as minted for development
-        await pool.execute(
-          "UPDATE product_item SET status = 'minted' WHERE id_item = ?",
-          [itemUuid]
-        );
-        itemStatus = 'minted';
+        // No blockchain — mark as waiting_nfc for local development & NFC workflow
+        await prisma.productItem.update({
+          where: { id_item: itemUuid },
+          data: { status: 'waiting_nfc' },
+        });
+        itemStatus = 'waiting_nfc';
         mintedCount++;
       }
 
@@ -464,11 +482,11 @@ router.post('/', authMiddleware, upload.single('gambar'), async (req, res, next)
     // Build status message
     let message;
     if (!blockchainOnline) {
-      message = `Product created + ${mintedCount} item(s) minted (offline mode).`;
+      message = `Produk berhasil dibuat + ${mintedCount} unit siap di-tap ke cip NFC (mode offline).`;
     } else if (failedCount === 0) {
-      message = `Product created + ${mintedCount} item(s) minted to blockchain! ⛓️`;
+      message = `Produk berhasil dibuat + ${mintedCount} unit di-mint ke blockchain Sepolia & masuk antrean NFC! ⛓️🏷️`;
     } else {
-      message = `Product created. ${mintedCount} item(s) minted, ${failedCount} failed (can retry via /mint).`;
+      message = `Produk dibuat. ${mintedCount} unit di-mint (antrean NFC), ${failedCount} gagal (dapat di-retry via /mint).`;
     }
 
     res.status(201).json({
@@ -485,6 +503,7 @@ router.post('/', authMiddleware, upload.single('gambar'), async (req, res, next)
         nama_sub_kategori,
         gambar_url,
         total_items: parsedQty,
+        waiting_nfc_items: mintedCount,
         minted_items: mintedCount,
         failed_items: failedCount,
         blockchain_mode: blockchainOnline ? 'online' : 'offline',
@@ -502,7 +521,7 @@ router.post('/', authMiddleware, upload.single('gambar'), async (req, res, next)
  */
 router.put('/:id', authMiddleware, async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id);
     const {
       id_sub_kategori,
       nama_produk,
@@ -512,30 +531,31 @@ router.put('/:id', authMiddleware, async (req, res, next) => {
       tanggal_produksi,
     } = req.body;
 
-    const [result] = await pool.execute(
-      `UPDATE produk_master SET
-        id_sub_kategori = COALESCE(?, id_sub_kategori),
-        nama_produk = COALESCE(?, nama_produk),
-        harga = COALESCE(?, harga),
-        warna = COALESCE(?, warna),
-        tipe_artikel = COALESCE(?, tipe_artikel),
-        tanggal_produksi = COALESCE(?, tanggal_produksi)
-       WHERE id_produk = ?`,
-      [id_sub_kategori, nama_produk, harga, warna, tipe_artikel, tanggal_produksi, id]
-    );
+    const data = {};
+    if (id_sub_kategori !== undefined) data.id_sub_kategori = parseInt(id_sub_kategori);
+    if (nama_produk !== undefined) data.nama_produk = nama_produk;
+    if (harga !== undefined) data.harga = parseFloat(harga);
+    if (warna !== undefined) data.warna = warna;
+    if (tipe_artikel !== undefined) data.tipe_artikel = tipe_artikel;
+    if (tanggal_produksi !== undefined) data.tanggal_produksi = new Date(tanggal_produksi);
 
-    if (result.affectedRows === 0) {
+    const updated = await prisma.produkMaster.update({
+      where: { id_produk: id },
+      data,
+    });
+
+    res.json({
+      success: true,
+      message: 'Product updated successfully.',
+      data: updated,
+    });
+  } catch (error) {
+    if (error.code === 'P2025') {
       return res.status(404).json({
         success: false,
         message: 'Product not found.',
       });
     }
-
-    res.json({
-      success: true,
-      message: 'Product updated successfully.',
-    });
-  } catch (error) {
     next(error);
   }
 });
@@ -546,29 +566,33 @@ router.put('/:id', authMiddleware, async (req, res, next) => {
  */
 router.delete('/:id', authMiddleware, async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id);
     const onlyPending = req.query.onlyPending === 'true';
 
     if (onlyPending) {
       // Delete only pending items
-      const [result] = await pool.execute(
-        "DELETE FROM product_item WHERE id_produk = ? AND status = 'pending'",
-        [id]
-      );
+      const result = await prisma.productItem.deleteMany({
+        where: {
+          id_produk: id,
+          status: 'pending',
+        },
+      });
 
       return res.json({
         success: true,
-        message: `${result.affectedRows} pending items deleted successfully.`,
+        message: `${result.count} pending items deleted successfully.`,
       });
     }
 
     // Check if product has minted items
-    const [items] = await pool.execute(
-      "SELECT COUNT(*) as count FROM product_item WHERE id_produk = ? AND status != 'pending'",
-      [id]
-    );
+    const nonPendingCount = await prisma.productItem.count({
+      where: {
+        id_produk: id,
+        status: { not: 'pending' },
+      },
+    });
 
-    if (items[0].count > 0) {
+    if (nonPendingCount > 0) {
       return res.status(400).json({
         success: false,
         message: 'Cannot delete product with minted items.',
@@ -576,30 +600,29 @@ router.delete('/:id', authMiddleware, async (req, res, next) => {
     }
 
     // Delete pending items first
-    await pool.execute('DELETE FROM product_item WHERE id_produk = ?', [id]);
+    await prisma.productItem.deleteMany({
+      where: { id_produk: id },
+    });
 
     // Delete product
-    const [result] = await pool.execute(
-      'DELETE FROM produk_master WHERE id_produk = ?',
-      [id]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found.',
-      });
-    }
+    await prisma.produkMaster.delete({
+      where: { id_produk: id },
+    });
 
     res.json({
       success: true,
       message: 'Product deleted successfully.',
     });
   } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found.',
+      });
+    }
     next(error);
   }
 });
-
 /**
  * POST /api/products/:id/mint
  * ⛓️ Retry minting pending items OR add a new item + mint
@@ -615,23 +638,21 @@ router.post('/:id/mint', authMiddleware, async (req, res, next) => {
     // ─── Verify admin wallet & smart contract authorization ───
     await checkAdminWalletAuthorization(req.admin.id_admin);
 
-    const { id } = req.params;
+    const id = parseInt(req.params.id);
     const { quantity } = req.body;
 
     // 1. Get product master data
-    const [products] = await pool.execute(
-      'SELECT * FROM produk_master WHERE id_produk = ?',
-      [id]
-    );
+    const product = await prisma.produkMaster.findUnique({
+      where: { id_produk: id },
+    });
 
-    if (products.length === 0) {
+    if (!product) {
       return res.status(404).json({
         success: false,
         message: 'Product not found.',
       });
     }
 
-    const product = products[0];
     const blockchainOnline = isBlockchainConnected();
     const results = [];
     let mintedCount = 0;
@@ -639,10 +660,12 @@ router.post('/:id/mint', authMiddleware, async (req, res, next) => {
 
     // ─── Mode A: Retry pending items ───
     if (!quantity) {
-      const [pendingItems] = await pool.execute(
-        "SELECT * FROM product_item WHERE id_produk = ? AND status = 'pending'",
-        [id]
-      );
+      const pendingItems = await prisma.productItem.findMany({
+        where: {
+          id_produk: id,
+          status: 'pending',
+        },
+      });
 
       if (pendingItems.length === 0) {
         return res.json({
@@ -674,28 +697,46 @@ router.post('/:id/mint', authMiddleware, async (req, res, next) => {
               tokenId = parsed.args.tokenId.toString();
             }
 
-            await pool.execute("UPDATE product_item SET status = 'minted', tx_hash = ? WHERE id_item = ?", [txHash, item.id_item]);
+            await prisma.productItem.update({
+              where: { id_item: item.id_item },
+              data: {
+                status: 'waiting_nfc',
+                tx_hash: txHash,
+              },
+            });
             mintedCount++;
 
-            await pool.execute(
-              `INSERT INTO system_log (action, detail, created_at) VALUES ('MINT_RETRY', ?, NOW())`,
-              [JSON.stringify({ id_item: item.id_item, id_produk: id, tx_hash: txHash, token_id: tokenId, admin: req.admin.email })]
-            ).catch(() => {});
+            await prisma.systemLog.create({
+              data: {
+                action: 'MINT_RETRY',
+                detail: {
+                  id_item: item.id_item,
+                  id_produk: id,
+                  tx_hash: txHash,
+                  token_id: tokenId,
+                  status: 'waiting_nfc',
+                  admin: req.admin.email,
+                },
+              },
+            }).catch(() => {});
           } catch (err) {
             console.error(`⚠️  Retry mint failed for ${item.id_item}:`, err.message);
             failedCount++;
           }
         } else {
-          await pool.execute("UPDATE product_item SET status = 'minted' WHERE id_item = ?", [item.id_item]);
+          await prisma.productItem.update({
+            where: { id_item: item.id_item },
+            data: { status: 'waiting_nfc' },
+          });
           mintedCount++;
         }
 
-        results.push({ id_item: item.id_item, tx_hash: txHash, token_id: tokenId, status: txHash || !blockchainOnline ? 'minted' : 'pending' });
+        results.push({ id_item: item.id_item, tx_hash: txHash, token_id: tokenId, status: txHash || !blockchainOnline ? 'waiting_nfc' : 'pending' });
       }
 
       return res.json({
         success: true,
-        message: `Retry complete: ${mintedCount} minted, ${failedCount} failed.`,
+        message: `Retry complete: ${mintedCount} unit siap diikat ke NFC (waiting_nfc), ${failedCount} gagal.`,
         data: { minted: mintedCount, failed: failedCount, items: results },
       });
     }
@@ -717,11 +758,15 @@ router.post('/:id/mint', authMiddleware, async (req, res, next) => {
       const secretCode = generateSecretCode();
       const qrResult = await generateQRCode(itemUuid, secretCode);
 
-      await pool.execute(
-        `INSERT INTO product_item (id_item, id_produk, hash_blockchain, secret_code, status, created_at)
-         VALUES (?, ?, ?, ?, 'pending', NOW())`,
-        [itemUuid, id, metadataHash, secretCode]
-      );
+      await prisma.productItem.create({
+        data: {
+          id_item: itemUuid,
+          id_produk: id,
+          hash_blockchain: metadataHash,
+          secret_code: secretCode,
+          status: 'pending',
+        },
+      });
 
       let txHash = null;
       let tokenId = null;
@@ -745,21 +790,39 @@ router.post('/:id/mint', authMiddleware, async (req, res, next) => {
             tokenId = parsed.args.tokenId.toString();
           }
 
-          await pool.execute("UPDATE product_item SET status = 'minted', tx_hash = ? WHERE id_item = ?", [txHash, itemUuid]);
-          itemStatus = 'minted';
+          await prisma.productItem.update({
+            where: { id_item: itemUuid },
+            data: {
+              status: 'waiting_nfc',
+              tx_hash: txHash,
+            },
+          });
+          itemStatus = 'waiting_nfc';
           mintedCount++;
 
-          await pool.execute(
-            `INSERT INTO system_log (action, detail, created_at) VALUES ('MINT', ?, NOW())`,
-            [JSON.stringify({ id_item: itemUuid, id_produk: id, tx_hash: txHash, token_id: tokenId, admin: req.admin.email })]
-          ).catch(() => {});
+          await prisma.systemLog.create({
+            data: {
+              action: 'MINT',
+              detail: {
+                id_item: itemUuid,
+                id_produk: id,
+                tx_hash: txHash,
+                token_id: tokenId,
+                status: 'waiting_nfc',
+                admin: req.admin.email,
+              },
+            },
+          }).catch(() => {});
         } catch (err) {
           console.error(`⚠️  Mint failed for new item ${i + 1}/${parsedQty}:`, err.message);
           failedCount++;
         }
       } else {
-        await pool.execute("UPDATE product_item SET status = 'minted' WHERE id_item = ?", [itemUuid]);
-        itemStatus = 'minted';
+        await prisma.productItem.update({
+          where: { id_item: itemUuid },
+          data: { status: 'waiting_nfc' },
+        });
+        itemStatus = 'waiting_nfc';
         mintedCount++;
       }
 
@@ -779,7 +842,7 @@ router.post('/:id/mint', authMiddleware, async (req, res, next) => {
       success: true,
       message: `${mintedCount} new item(s) added + minted. ${failedCount > 0 ? `${failedCount} failed.` : ''}`,
       data: {
-        id_produk: parseInt(id),
+        id_produk: id,
         minted: mintedCount,
         failed: failedCount,
         items: results,

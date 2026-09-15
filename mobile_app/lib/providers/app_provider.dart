@@ -179,6 +179,21 @@ class AppProvider extends ChangeNotifier {
       }
       return null;
     } catch (e) {
+      _error = 'Error verifikasi: ${e.toString()}';
+      return null;
+    }
+  }
+
+  /// Verify product by NFC (dual scan: hash + uidFisik)
+  Future<VerificationResult?> verifyProductNfc({
+    required String hash,
+    required String uidFisik,
+  }) async {
+    try {
+      final res = await _api.verifyNfc(hash: hash, uidFisik: uidFisik);
+      return VerificationResult.fromJson(res);
+    } catch (e) {
+      _error = 'Error verifikasi NFC: ${e.toString()}';
       return null;
     }
   }

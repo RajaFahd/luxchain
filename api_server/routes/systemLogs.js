@@ -6,7 +6,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../config/database');
+const { prisma } = require('../config/prisma');
 const { authMiddleware } = require('../middleware/auth');
 
 /**
@@ -19,46 +19,36 @@ router.get('/', authMiddleware, async (req, res, next) => {
     const { action, search, page = 1, limit = 50 } = req.query;
     const parsedPage = parseInt(page) || 1;
     const parsedLimit = Math.min(parseInt(limit) || 50, 100);
-    const offset = (parsedPage - 1) * parsedLimit;
+    const skip = (parsedPage - 1) * parsedLimit;
 
-    let query = 'SELECT * FROM system_log';
-    const params = [];
-    const conditions = [];
+    const where = {};
 
     if (action) {
-      conditions.push('action = ?');
-      params.push(action);
+      where.action = action;
     }
 
     if (search) {
-      conditions.push('(action LIKE ? OR detail LIKE ?)');
-      params.push(`%${search}%`, `%${search}%`);
+      where.OR = [
+        { action: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
-
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    params.push(parsedLimit, offset);
-
-    const [rows] = await pool.query(query, params);
-
-    // Get total count
-    let countQuery = 'SELECT COUNT(*) as total FROM system_log';
-    const countParams = [];
-    if (conditions.length > 0) {
-      countQuery += ' WHERE ' + conditions.join(' AND ');
-      countParams.push(...params.slice(0, -2));
-    }
-    const [countResult] = await pool.query(countQuery, countParams);
-    const total = countResult[0].total;
+    const [logs, total] = await Promise.all([
+      prisma.systemLog.findMany({
+        where,
+        orderBy: {
+          created_at: 'desc',
+        },
+        skip,
+        take: parsedLimit,
+      }),
+      prisma.systemLog.count({ where }),
+    ]);
 
     // Parse detail JSON for each row
-    const parsed = rows.map(row => {
+    const parsed = logs.map(row => {
       let detail = {};
       if (typeof row.detail === 'object' && row.detail !== null) {
-        // mysql2 already parsed the JSON
         detail = row.detail;
       } else if (typeof row.detail === 'string') {
         try {
@@ -68,7 +58,7 @@ router.get('/', authMiddleware, async (req, res, next) => {
         }
       }
       return {
-        id: row.id || row.id_log,
+        id: row.id_log,
         action: row.action,
         detail,
         created_at: row.created_at,
@@ -86,14 +76,6 @@ router.get('/', authMiddleware, async (req, res, next) => {
       },
     });
   } catch (error) {
-    // If system_log table doesn't exist, return empty
-    if (error.code === 'ER_NO_SUCH_TABLE') {
-      return res.json({
-        success: true,
-        data: [],
-        pagination: { page: 1, limit: 50, total: 0, totalPages: 0 },
-      });
-    }
     next(error);
   }
 });

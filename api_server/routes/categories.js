@@ -9,7 +9,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../config/database');
+const { prisma } = require('../config/prisma');
 const { authMiddleware } = require('../middleware/auth');
 
 /**
@@ -18,17 +18,26 @@ const { authMiddleware } = require('../middleware/auth');
  */
 router.get('/', async (req, res, next) => {
   try {
-    const [categories] = await pool.execute(
-      `SELECT k.*, COUNT(sk.id_sub_kategori) as sub_count
-       FROM kategori k
-       LEFT JOIN sub_kategori sk ON k.id_kategori = sk.id_kategori
-       GROUP BY k.id_kategori
-       ORDER BY k.nama_kategori`
-    );
+    const categories = await prisma.kategori.findMany({
+      include: {
+        _count: {
+          select: { sub_kategori: true },
+        },
+      },
+      orderBy: {
+        nama_kategori: 'asc',
+      },
+    });
+
+    const formatted = categories.map(k => ({
+      id_kategori: k.id_kategori,
+      nama_kategori: k.nama_kategori,
+      sub_count: k._count.sub_kategori,
+    }));
 
     res.json({
       success: true,
-      data: categories,
+      data: formatted,
     });
   } catch (error) {
     next(error);
@@ -50,18 +59,16 @@ router.post('/', authMiddleware, async (req, res, next) => {
       });
     }
 
-    const [result] = await pool.execute(
-      'INSERT INTO kategori (nama_kategori) VALUES (?)',
-      [nama_kategori]
-    );
+    const created = await prisma.kategori.create({
+      data: {
+        nama_kategori: nama_kategori.trim(),
+      },
+    });
 
     res.status(201).json({
       success: true,
       message: 'Category created successfully.',
-      data: {
-        id_kategori: result.insertId,
-        nama_kategori,
-      },
+      data: created,
     });
   } catch (error) {
     next(error);
@@ -74,18 +81,34 @@ router.post('/', authMiddleware, async (req, res, next) => {
  */
 router.get('/:id/subs', async (req, res, next) => {
   try {
-    const [subs] = await pool.execute(
-      `SELECT sk.*, k.nama_kategori
-       FROM sub_kategori sk
-       JOIN kategori k ON sk.id_kategori = k.id_kategori
-       WHERE sk.id_kategori = ?
-       ORDER BY sk.nama_sub_kategori`,
-      [req.params.id]
-    );
+    const id_kategori = parseInt(req.params.id);
+
+    const subs = await prisma.subKategori.findMany({
+      where: {
+        id_kategori,
+      },
+      include: {
+        kategori: {
+          select: {
+            nama_kategori: true,
+          },
+        },
+      },
+      orderBy: {
+        nama_sub_kategori: 'asc',
+      },
+    });
+
+    const formatted = subs.map(sk => ({
+      id_sub_kategori: sk.id_sub_kategori,
+      id_kategori: sk.id_kategori,
+      nama_sub_kategori: sk.nama_sub_kategori,
+      nama_kategori: sk.kategori?.nama_kategori || '',
+    }));
 
     res.json({
       success: true,
-      data: subs,
+      data: formatted,
     });
   } catch (error) {
     next(error);
@@ -99,6 +122,7 @@ router.get('/:id/subs', async (req, res, next) => {
 router.post('/:id/subs', authMiddleware, async (req, res, next) => {
   try {
     const { nama_sub_kategori } = req.body;
+    const id_kategori = parseInt(req.params.id);
 
     if (!nama_sub_kategori) {
       return res.status(400).json({
@@ -107,19 +131,17 @@ router.post('/:id/subs', authMiddleware, async (req, res, next) => {
       });
     }
 
-    const [result] = await pool.execute(
-      'INSERT INTO sub_kategori (id_kategori, nama_sub_kategori) VALUES (?, ?)',
-      [req.params.id, nama_sub_kategori]
-    );
+    const created = await prisma.subKategori.create({
+      data: {
+        id_kategori,
+        nama_sub_kategori: nama_sub_kategori.trim(),
+      },
+    });
 
     res.status(201).json({
       success: true,
       message: 'Sub-category created successfully.',
-      data: {
-        id_sub_kategori: result.insertId,
-        id_kategori: parseInt(req.params.id),
-        nama_sub_kategori,
-      },
+      data: created,
     });
   } catch (error) {
     next(error);

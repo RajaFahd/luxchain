@@ -14,9 +14,9 @@ class ApiService {
     }
     try {
       if (Platform.isAndroid) {
-        return 'http://192.168.18.244:3001/api';
+        // return 'http://192.168.18.244:3001/api';
         // return 'http://192.168.137.1:3001/api';
-        // return 'http://172.20.10.2:3001/api';
+        return 'http://172.20.10.2:3001/api';
         // return 'http://10.0.2.2:3001/api';
       }
     } catch (_) {}
@@ -111,6 +111,17 @@ class ApiService {
   /// POST /api/items/:uuid/verify — Cross-check with blockchain
   Future<Map<String, dynamic>> verifyItem(String uuid) async {
     return post('/items/$uuid/verify');
+  }
+
+  /// POST /api/items/verify-nfc — Strict Double Validation (Local Anti-Clone + Sepolia On-Chain)
+  Future<Map<String, dynamic>> verifyNfc({
+    required String hash,
+    required String uidFisik,
+  }) async {
+    return post('/items/verify-nfc', body: {
+      'hash': hash,
+      'uid_fisik': uidFisik,
+    });
   }
 
   // ═════════════════════════════════════════════════════════════

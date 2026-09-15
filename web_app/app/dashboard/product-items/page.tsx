@@ -157,7 +157,7 @@ export default function ProductItemsPage() {
 
   return (
     <div className="animate-fade-in">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }}>
         <div>
           <h1 style={{ fontSize: "24px", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.5px" }}>
             Daftar Product Items (Unit Fisik)
@@ -166,6 +166,22 @@ export default function ProductItemsPage() {
             Data seluruh unit produk fisik yang di-minting ke blockchain dan menempel pada produk aslinya.
           </p>
         </div>
+        <a
+          href="/dashboard/nfc-queue"
+          style={{
+            display: "flex", alignItems: "center", gap: "8px",
+            padding: "9px 16px", background: "var(--primary)",
+            color: "var(--primary-foreground)", textDecoration: "none",
+            borderRadius: "calc(var(--radius) - 2px)", fontSize: "13px",
+            fontWeight: 600, transition: "opacity 0.15s"
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+          </svg>
+          Stasiun Antrean NFC
+        </a>
       </div>
 
       {/* Search & Filter Section */}
@@ -196,8 +212,9 @@ export default function ProductItemsPage() {
         <div style={{ display: "flex", gap: "8px" }}>
           {[
             { label: "All", value: "" },
-            { label: "Pending", value: "pending" },
+            { label: "Waiting NFC", value: "waiting_nfc" },
             { label: "Minted", value: "minted" },
+            { label: "Pending", value: "pending" },
             { label: "Sold", value: "sold" },
           ].map((pill) => {
             const isActive = statusFilter === pill.value;
@@ -314,6 +331,7 @@ export default function ProductItemsPage() {
                 </th>
                 <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>PRODUK</th>
                 <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>UUID (QR CODE)</th>
+                <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>UID FISIK (NFC)</th>
                 <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>SECRET CODE</th>
                 <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>HASH BLOCKCHAIN</th>
                 <th style={{ padding: "16px 20px", fontWeight: 500, color: "var(--muted-foreground)" }}>TXHASH</th>
@@ -392,6 +410,18 @@ export default function ProductItemsPage() {
                     </div>
                   </td>
                   <td style={{ padding: "16px 20px" }}>
+                    {i.uid_fisik ? (
+                      <CopyableText 
+                        text={i.uid_fisik} 
+                        style={{ color: "var(--primary)", fontFamily: "monospace", fontSize: "12px", fontWeight: 500 }} 
+                      />
+                    ) : (
+                      <span style={{ color: "var(--muted-foreground)", fontSize: "12px", fontStyle: "italic" }}>
+                        Belum diikat
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ padding: "16px 20px" }}>
                     <CopyableText 
                       text={i.secret_code} 
                       style={{ color: "var(--foreground)", fontWeight: 500 }} 
@@ -418,14 +448,32 @@ export default function ProductItemsPage() {
                   </td>
                   <td style={{ padding: "16px 20px" }}>
                     <span style={{ 
-                      background: i.status === 'minted' ? "var(--lc-success-bg)" : "var(--lc-warning-bg)", 
-                      color: i.status === 'minted' ? "var(--lc-success)" : "var(--lc-warning)", 
+                      background:
+                        i.status === 'minted'
+                          ? "var(--lc-success-bg)"
+                          : i.status === 'waiting_nfc'
+                          ? "rgba(59, 130, 246, 0.12)"
+                          : i.status === 'sold'
+                          ? "rgba(168, 85, 247, 0.12)"
+                          : "var(--lc-warning-bg)", 
+                      color:
+                        i.status === 'minted'
+                          ? "var(--lc-success)"
+                          : i.status === 'waiting_nfc'
+                          ? "#3b82f6"
+                          : i.status === 'sold'
+                          ? "#a855f7"
+                          : "var(--lc-warning)", 
                       padding: "4px 10px", 
                       borderRadius: "20px", 
                       fontSize: "12px",
-                      fontWeight: 500
+                      fontWeight: 600,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px"
                     }}>
-                      {i.status.toUpperCase()}
+                      {i.status === 'waiting_nfc' && <span>🏷️</span>}
+                      {i.status.replace('_', ' ').toUpperCase()}
                     </span>
                   </td>
                   <td style={{ padding: "16px 20px" }}>

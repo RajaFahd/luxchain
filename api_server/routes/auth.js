@@ -1,15 +1,18 @@
 // ============================================================
-// Auth Routes — Admin Login (JWT)
+// Auth Routes — Admin Login (JWT) via Prisma ORM
 // ============================================================
 // POST /api/auth/login
 // GET  /api/auth/me
+// POST /api/auth/register
+// PUT  /api/auth/wallet
 // ============================================================
 
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const { pool } = require('../config/database');
+const { prisma } = require('../config/prisma');
 const { authMiddleware, generateToken } = require('../middleware/auth');
+const { ethers } = require('ethers');
 
 /**
  * POST /api/auth/login
@@ -28,19 +31,16 @@ router.post('/login', async (req, res, next) => {
     }
 
     // Find admin by email
-    const [rows] = await pool.execute(
-      'SELECT * FROM admin WHERE email = ?',
-      [email]
-    );
+    const admin = await prisma.admin.findUnique({
+      where: { email },
+    });
 
-    if (rows.length === 0) {
+    if (!admin) {
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password.',
       });
     }
-
-    const admin = rows[0];
 
     // Verify password
     const isMatch = await bcrypt.compare(password, admin.password);
@@ -77,12 +77,17 @@ router.post('/login', async (req, res, next) => {
  */
 router.get('/me', authMiddleware, async (req, res, next) => {
   try {
-    const [rows] = await pool.execute(
-      'SELECT id_admin, email, wallet_address FROM admin WHERE id_admin = ?',
-      [req.admin.id_admin]
-    );
+    const admin = await prisma.admin.findUnique({
+      where: { id_admin: req.admin.id_admin },
+      select: {
+        id_admin: true,
+        email: true,
+        wallet_address: true,
+        created_at: true,
+      },
+    });
 
-    if (rows.length === 0) {
+    if (!admin) {
       return res.status(404).json({
         success: false,
         message: 'Admin not found.',
@@ -91,7 +96,7 @@ router.get('/me', authMiddleware, async (req, res, next) => {
 
     res.json({
       success: true,
-      data: rows[0],
+      data: admin,
     });
   } catch (error) {
     next(error);
@@ -121,23 +126,37 @@ router.post('/register', async (req, res, next) => {
       });
     }
 
+    // Check if email already exists
+    const existing = await prisma.admin.findUnique({
+      where: { email },
+    });
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already registered.',
+      });
+    }
+
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // Insert admin
-    const [result] = await pool.execute(
-      'INSERT INTO admin (email, password, wallet_address) VALUES (?, ?, ?)',
-      [email, hashedPassword, wallet_address]
-    );
+    const admin = await prisma.admin.create({
+      data: {
+        email,
+        password: hashedPassword,
+        wallet_address,
+      },
+    });
 
     res.status(201).json({
       success: true,
       message: 'Admin registered successfully.',
       data: {
-        id_admin: result.insertId,
-        email,
-        wallet_address,
+        id_admin: admin.id_admin,
+        email: admin.email,
+        wallet_address: admin.wallet_address,
       },
     });
   } catch (error) {
@@ -179,11 +198,8 @@ router.put('/wallet', authMiddleware, async (req, res, next) => {
 
       // Reconstruct the exact message that was signed in the frontend
       const expectedMessage = `Luxchain Admin Wallet Verification: ${wallet_address}`;
-      
-      // Recover signer address using ethers
-      const { ethers } = require('ethers');
       const recoveredAddress = ethers.verifyMessage(expectedMessage, signature);
-      
+
       if (recoveredAddress.toLowerCase() !== wallet_address.toLowerCase()) {
         return res.status(400).json({
           success: false,
@@ -192,15 +208,15 @@ router.put('/wallet', authMiddleware, async (req, res, next) => {
       }
     }
 
-    await pool.execute(
-      'UPDATE admin SET wallet_address = ? WHERE id_admin = ?',
-      [wallet_address, req.admin.id_admin]
-    );
+    const updated = await prisma.admin.update({
+      where: { id_admin: req.admin.id_admin },
+      data: { wallet_address },
+    });
 
     res.json({
       success: true,
       message: 'Wallet address updated successfully.',
-      data: { wallet_address },
+      data: { wallet_address: updated.wallet_address },
     });
   } catch (error) {
     next(error);

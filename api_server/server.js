@@ -14,7 +14,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
-const { testConnection } = require('./config/database');
+const { testConnection } = require('./config/prisma');
 const { initBlockchain } = require('./config/blockchain');
 const { errorHandler } = require('./middleware/errorHandler');
 

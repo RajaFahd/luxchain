@@ -83,7 +83,7 @@ export default function NewProductPage() {
           blockchain_mode: result.data.blockchain_mode,
         });
         setMintSuccess(true);
-        setTimeout(() => router.push("/dashboard/products"), 3000);
+        setTimeout(() => router.push(`/dashboard/nfc-queue?id_produk=${result.data.id_produk}`), 2500);
       } else {
         setError(result.message || "Gagal mendaftarkan produk");
         setMintStep(0);
@@ -125,12 +125,12 @@ export default function NewProductPage() {
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </div>
-        <h2 style={{ fontSize: "20px", fontWeight: 600, color: "var(--foreground)", marginBottom: "6px" }}>Berhasil!</h2>
+        <h2 style={{ fontSize: "20px", fontWeight: 600, color: "var(--foreground)", marginBottom: "6px" }}>Berhasil Didaftarkan!</h2>
         <p style={{ fontSize: "14px", color: "var(--muted-foreground)", marginBottom: "4px" }}>
-          <strong>{mintResult.nama_produk}</strong> — {mintResult.minted_items} dari {mintResult.total_items} item berhasil di-mint.
+          <strong>{mintResult.nama_produk}</strong> — {mintResult.total_items} unit siap diikat ke cip fisik (waiting_nfc).
         </p>
-        <p style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>
-          Mode: {mintResult.blockchain_mode === "online" ? "⛓️ On-chain" : "🟡 Offline"} — Redirecting ke daftar produk...
+        <p style={{ fontSize: "13px", color: "var(--primary)", marginTop: "8px", fontWeight: 500 }}>
+          Mengalihkan ke Antrean Web NFC untuk mulai tapping cip... 🏷️
         </p>
       </div>
     );
