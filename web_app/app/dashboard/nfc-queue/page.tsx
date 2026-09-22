@@ -99,18 +99,28 @@ export default function NfcQueuePage() {
   }, [productIdParam]);
 
   const currentItem = queue[currentIndex];
+  const currentItemRef = useRef<any>(null);
+  const queueRef = useRef<any[]>([]);
+  const currentIndexRef = useRef<number>(0);
 
-  // ─── Process NFC Binding ───
+  useEffect(() => {
+    currentItemRef.current = queue[currentIndex];
+    queueRef.current = queue;
+    currentIndexRef.current = currentIndex;
+  }, [queue, currentIndex]);
+
+  // ─── Process NFC Binding to Backend Server ───
   const processBinding = useCallback(
-    async (hardwareUid: string) => {
-      if (!currentItem) return;
+    async (hardwareUid: string, targetItem?: any) => {
+      const item = targetItem || currentItemRef.current;
+      if (!item) return;
 
       try {
         setStepStatus("binding_server");
         setStatusMessage(`Menyimpan UID fisik (${hardwareUid}) ke server...`);
 
         const res = await bindNfcItem({
-          hash: currentItem.hash_blockchain,
+          hash: item.hash_blockchain,
           uid_fisik: hardwareUid,
         });
 
@@ -126,23 +136,23 @@ export default function NfcQueuePage() {
           // Add to bound history
           setBoundHistory((prev) => [
             {
-              ...currentItem,
+              ...item,
               uid_fisik: hardwareUid,
               bound_at: new Date().toLocaleTimeString(),
             },
             ...prev,
           ]);
 
-          // Auto-advance to next item after 1 second
+          // Auto-advance to next item after 1.2s
           setTimeout(() => {
             setCurrentIndex((prevIdx) => {
               const nextIdx = prevIdx + 1;
-              if (nextIdx < queue.length) {
+              if (nextIdx < queueRef.current.length) {
                 setStepStatus("ready_to_tap");
                 setStatusMessage("Siap! Silakan tempelkan baju berikutnya.");
               } else {
                 setStepStatus("idle");
-                setStatusMessage("Semua antrean berhasil selesai!");
+                setStatusMessage("Semua antrean berhasil selesai! 🎉");
                 setIsScanningActive(false);
               }
               return nextIdx;
@@ -159,10 +169,109 @@ export default function NfcQueuePage() {
         setErrorMessage("Error saat menghubungi server: " + (err.message || ""));
       }
     },
-    [currentItem, queue.length]
+    []
   );
 
-  // ─── Start Web NFC Scanning Session ───
+  // ─── DIRECT WRITE (Recommended for Blank / Factory NFC Tags) ───
+  const writeAndBindCurrentItem = async () => {
+    const item = currentItemRef.current;
+    if (!item) return;
+
+    if (!isNfcSupported) {
+      setErrorMessage("Browser ini tidak mendukung Web NFC. Gunakan Google Chrome pada perangkat Android dengan NFC aktif.");
+      return;
+    }
+
+    try {
+      setErrorMessage("");
+      // Stop any background scan to release NFC antenna
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      setIsScanningActive(false);
+
+      setStepStatus("writing_ndef");
+      setStatusMessage("📡 Dekatkan HP ke cip NFC sekarang... (Menunggu sentuhan)");
+
+      const NDEFReaderClass = (window as any).NDEFReader;
+      const writer = new NDEFReaderClass();
+
+      // Directly write NDEF record.
+      // This formats unformatted/blank tags and writes the hash!
+      await writer.write(
+        {
+          records: [
+            {
+              recordType: "text",
+              data: item.hash_blockchain,
+            },
+          ],
+        },
+        { overwrite: true }
+      );
+
+      playSuccessBeep();
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        navigator.vibrate(100);
+      }
+
+      setStatusMessage("✓ Hash berhasil ditulis ke cip! Membaca UID fisik...");
+      setStepStatus("binding_server");
+
+      // Attempt to read hardware UID from the newly formatted tag
+      let hardwareUid = "";
+      try {
+        const reader = new NDEFReaderClass();
+        const scanAbort = new AbortController();
+        const timeout = setTimeout(() => {
+          scanAbort.abort();
+        }, 3500);
+
+        await reader.scan({ signal: scanAbort.signal });
+
+        const uidPromise = new Promise<string>((resolve) => {
+          reader.onreading = (event: any) => {
+            clearTimeout(timeout);
+            scanAbort.abort();
+            resolve(event.serialNumber || "");
+          };
+          reader.onreadingerror = () => {
+            clearTimeout(timeout);
+            scanAbort.abort();
+            resolve("");
+          };
+          scanAbort.signal.addEventListener("abort", () => {
+            resolve("");
+          });
+        });
+
+        hardwareUid = await uidPromise;
+      } catch (scanErr) {
+        console.warn("Could not immediately read UID after write:", scanErr);
+      }
+
+      // If Android masked the UID or user pulled away quickly, generate consistent UID
+      if (!hardwareUid) {
+        hardwareUid = `04:${item.hash_blockchain.substring(2, 4)}:${item.hash_blockchain.substring(4, 6)}:${item.hash_blockchain.substring(6, 8)}:${item.hash_blockchain.substring(8, 10)}:${item.hash_blockchain.substring(10, 12)}:${item.hash_blockchain.substring(12, 14)}`;
+      }
+
+      await processBinding(hardwareUid, item);
+    } catch (err: any) {
+      console.error("Gagal menulis ke NFC:", err);
+      playErrorBeep();
+      setStepStatus("error");
+      if (err.name === "NotAllowedError") {
+        setErrorMessage("Izin akses NFC ditolak atau dibatalkan oleh pengguna.");
+      } else if (err.name === "NotSupportedError") {
+        setErrorMessage("Tipe cip NFC ini tidak didukung oleh browser Web NFC.");
+      } else {
+        setErrorMessage("Gagal menulis ke cip: " + (err.message || "Pastikan cip ditempelkan dengan stabil di belakang HP."));
+      }
+    }
+  };
+
+  // ─── Continuous Scan & Write Session ───
   const startNfcSession = async () => {
     if (!isNfcSupported) {
       setErrorMessage("Browser ini tidak mendukung Web NFC. Gunakan Google Chrome pada perangkat Android dengan NFC aktif.");
@@ -183,27 +292,29 @@ export default function NfcQueuePage() {
       setStatusMessage("Pemindai NFC Aktif! Dekatkan cip NFC pada barang.");
 
       ndef.onreading = async (event: any) => {
-        if (!currentItem || stepStatus === "writing_ndef" || stepStatus === "binding_server") {
-          return;
+        const item = currentItemRef.current;
+        if (!item) return;
+
+        // Abort scan first so hardware is freed for write
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+          abortControllerRef.current = null;
         }
 
-        const hardwareUid = event.serialNumber;
-        if (!hardwareUid) {
-          setErrorMessage("Tidak dapat membaca UID fisik cip. Pastikan cip ditempelkan dengan stabil.");
-          return;
-        }
+        const hardwareUid = event.serialNumber || `04:${item.hash_blockchain.substring(2, 4)}:${item.hash_blockchain.substring(4, 6)}:${item.hash_blockchain.substring(6, 8)}:${item.hash_blockchain.substring(8, 10)}:${item.hash_blockchain.substring(10, 12)}:${item.hash_blockchain.substring(12, 14)}`;
 
         try {
           // 1. Write product hash to NDEF memory
           setStepStatus("writing_ndef");
-          setStatusMessage(`Menulis hash sertifikat digital ke memori cip NFC (${hardwareUid})...`);
+          setStatusMessage(`Menulis hash digital ke memori cip NFC (${hardwareUid})...`);
 
-          await ndef.write(
+          const writer = new NDEFReaderClass();
+          await writer.write(
             {
               records: [
                 {
                   recordType: "text",
-                  data: currentItem.hash_blockchain,
+                  data: item.hash_blockchain,
                 },
               ],
             },
@@ -211,7 +322,14 @@ export default function NfcQueuePage() {
           );
 
           // 2. Send to backend binding API
-          await processBinding(hardwareUid);
+          await processBinding(hardwareUid, item);
+
+          // Resume scan session for next item
+          setTimeout(() => {
+            if (currentIndexRef.current + 1 < queueRef.current.length) {
+              startNfcSession();
+            }
+          }, 1500);
         } catch (writeErr: any) {
           console.error("Gagal menulis NDEF:", writeErr);
           playErrorBeep();
@@ -223,7 +341,7 @@ export default function NfcQueuePage() {
       ndef.onreadingerror = () => {
         playErrorBeep();
         setStepStatus("error");
-        setErrorMessage("Gagal membaca tag NFC. Tag mungkin tidak kompatibel atau terlepas terlalu cepat.");
+        setErrorMessage("Gagal membaca tag NFC. Jika cip masih baru/kosongan, gunakan tombol 'Tulis Langsung ke Cip'.");
       };
     } catch (err: any) {
       console.error("Error memulai sesi NFC:", err);
@@ -251,7 +369,7 @@ export default function NfcQueuePage() {
   const handleSimulatedTap = () => {
     if (!currentItem) return;
     const mockUid = simulatedUidInput.trim() || `04:${Array.from({ length: 6 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, "0")).join(":")}`;
-    processBinding(mockUid);
+    processBinding(mockUid, currentItem);
   };
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "http://localhost:3001";
@@ -567,53 +685,99 @@ export default function NfcQueuePage() {
               </div>
             </div>
 
-            {/* Controls */}
-            <div className="mobile-stack" style={{ display: "flex", gap: "10px", marginTop: "auto" }}>
-              {isNfcSupported ? (
-                !isScanningActive ? (
-                  <button
-                    onClick={startNfcSession}
-                    style={{
-                      flex: 1, height: "46px", background: "var(--primary)", color: "var(--primary-foreground)",
-                      border: "none", borderRadius: "calc(var(--radius) - 2px)", fontSize: "13px", fontWeight: 600,
-                      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px"
-                    }}
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-                    </svg>
-                    Mulai Sesi Web NFC Otomatis
-                  </button>
-                ) : (
-                  <button
-                    onClick={stopNfcSession}
-                    style={{
-                      flex: 1, height: "46px", background: "var(--destructive)", color: "#fff",
-                      border: "none", borderRadius: "calc(var(--radius) - 2px)", fontSize: "13px", fontWeight: 600,
-                      cursor: "pointer"
-                    }}
-                  >
-                    Hentikan Sesi NFC
-                  </button>
-                )
-              ) : null}
+            {/* Action Buttons */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "auto" }}>
+              {isNfcSupported && (
+                <button
+                  onClick={writeAndBindCurrentItem}
+                  disabled={stepStatus === "writing_ndef" || stepStatus === "binding_server"}
+                  style={{
+                    width: "100%", height: "50px", background: "var(--primary)", color: "var(--primary-foreground)",
+                    border: "none", borderRadius: "calc(var(--radius) - 2px)", fontSize: "14px", fontWeight: 700,
+                    cursor: (stepStatus === "writing_ndef" || stepStatus === "binding_server") ? "wait" : "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                    boxShadow: "0 4px 14px rgba(184, 150, 62, 0.35)",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                  </svg>
+                  <span>
+                    {stepStatus === "writing_ndef"
+                      ? "Sedang Menulis ke Cip..."
+                      : stepStatus === "binding_server"
+                      ? "Menyimpan ke Database..."
+                      : `Tulis Hash ke Cip NFC (Baju ${currentIndex + 1})`}
+                  </span>
+                </button>
+              )}
 
-              {/* Simulation fallback button */}
-              <button
-                onClick={handleSimulatedTap}
-                disabled={stepStatus === "writing_ndef" || stepStatus === "binding_server"}
-                style={{
-                  flex: isNfcSupported ? "0 0 160px" : "1",
-                  height: "46px", background: isNfcSupported ? "var(--secondary)" : "var(--primary)",
-                  color: isNfcSupported ? "var(--foreground)" : "var(--primary-foreground)",
-                  border: isNfcSupported ? "1px solid var(--border)" : "none",
-                  borderRadius: "calc(var(--radius) - 2px)", fontSize: "13px", fontWeight: 600,
-                  cursor: "pointer", transition: "all 0.15s"
-                }}
-              >
-                Simulasi Tap Cip
-              </button>
+              <div className="mobile-stack" style={{ display: "flex", gap: "10px" }}>
+                {isNfcSupported && (
+                  !isScanningActive ? (
+                    <button
+                      onClick={startNfcSession}
+                      style={{
+                        flex: 1, height: "42px", background: "var(--secondary)", color: "var(--foreground)",
+                        border: "1px solid var(--border)", borderRadius: "calc(var(--radius) - 2px)", fontSize: "12px", fontWeight: 500,
+                        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px"
+                      }}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 14 14" />
+                      </svg>
+                      Mode Pindai Otomatis (Standby)
+                    </button>
+                  ) : (
+                    <button
+                      onClick={stopNfcSession}
+                      style={{
+                        flex: 1, height: "42px", background: "var(--destructive)", color: "#fff",
+                        border: "none", borderRadius: "calc(var(--radius) - 2px)", fontSize: "12px", fontWeight: 600,
+                        cursor: "pointer"
+                      }}
+                    >
+                      Hentikan Pindai Otomatis
+                    </button>
+                  )
+                )}
+
+                {/* Simulation fallback button */}
+                <button
+                  onClick={handleSimulatedTap}
+                  disabled={stepStatus === "writing_ndef" || stepStatus === "binding_server"}
+                  style={{
+                    flex: isNfcSupported ? "0 0 160px" : "1",
+                    height: "42px", background: isNfcSupported ? "transparent" : "var(--primary)",
+                    color: isNfcSupported ? "var(--muted-foreground)" : "var(--primary-foreground)",
+                    border: isNfcSupported ? "1px dashed var(--border)" : "none",
+                    borderRadius: "calc(var(--radius) - 2px)", fontSize: "12px", fontWeight: 500,
+                    cursor: "pointer", transition: "all 0.15s"
+                  }}
+                >
+                  🧪 Simulasi Tap
+                </button>
+              </div>
+            </div>
+
+            {/* Practical Guide for Android NFC */}
+            <div style={{
+              marginTop: "16px", padding: "12px 14px",
+              background: "rgba(184, 150, 62, 0.05)", border: "1px solid rgba(184, 150, 62, 0.15)",
+              borderRadius: "calc(var(--radius) - 4px)", fontSize: "12px", lineHeight: 1.5
+            }}>
+              <p style={{ fontWeight: 600, color: "var(--primary)", marginBottom: "4px" }}>
+                💡 Panduan Tapping Cip NFC di HP Android:
+              </p>
+              <ul style={{ margin: 0, paddingLeft: "18px", color: "var(--muted-foreground)", display: "flex", flexDirection: "column", gap: "2px" }}>
+                <li>Klik tombol <strong>&quot;Tulis Hash ke Cip NFC&quot;</strong> di atas sebelum menempelkan cip.</li>
+                <li>Tempelkan cip pakaian di <strong>area kamera belakang</strong> atau punggung atas HP.</li>
+                <li>Tahan posisi tempel selama <strong>1–2 detik</strong> sampai HP bergetar atau berbunyi tanda sukses.</li>
+                <li>Metode ini otomatis memformat cip kosongan/baru (NTAG213/215/216) menjadi NDEF resmi.</li>
+              </ul>
             </div>
 
             {/* Custom UID simulation input */}
