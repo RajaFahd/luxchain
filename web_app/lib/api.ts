@@ -180,8 +180,16 @@ export async function getWaitingNfcQueue(id_produk?: number) {
   return res.json();
 }
 
-export async function bindNfcItem(payload: { hash: string; uid_fisik: string }) {
+export async function bindNfcItem(payload: { hash: string; uid_fisik: string; overwrite?: boolean }) {
   const res = await apiFetch("/items/bind-nfc", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+export async function resetNfcItem(payload: { id_item?: string; hash?: string }) {
+  const res = await apiFetch("/items/reset-nfc", {
     method: "POST",
     body: JSON.stringify(payload),
   });

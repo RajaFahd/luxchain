@@ -111,17 +111,18 @@ export default function NfcQueuePage() {
 
   // ─── Process NFC Binding to Backend Server ───
   const processBinding = useCallback(
-    async (hardwareUid: string, targetItem?: any) => {
+    async (hardwareUid: string, targetItem?: any, overwrite = true) => {
       const item = targetItem || currentItemRef.current;
       if (!item) return;
 
       try {
         setStepStatus("binding_server");
-        setStatusMessage(`Menyimpan UID fisik (${hardwareUid}) ke server...`);
+        setStatusMessage(`Menyimpan UID fisik (${hardwareUid}) ke database server...`);
 
         const res = await bindNfcItem({
           hash: item.hash_blockchain,
           uid_fisik: hardwareUid,
+          overwrite,
         });
 
         if (res.success) {
@@ -131,7 +132,7 @@ export default function NfcQueuePage() {
           }
 
           setStepStatus("success");
-          setStatusMessage(`Berhasil di-binding! UID: ${hardwareUid}`);
+          setStatusMessage(`Berhasil diikat! UID Fisik Cip: ${hardwareUid}`);
 
           // Add to bound history
           setBoundHistory((prev) => [
@@ -172,7 +173,7 @@ export default function NfcQueuePage() {
     []
   );
 
-  // ─── DIRECT WRITE (Recommended for Blank / Factory NFC Tags) ───
+  // ─── DIRECT WRITE (Scan Tag for Hardware UID first, then Write Hash) ───
   const writeAndBindCurrentItem = async () => {
     const item = currentItemRef.current;
     if (!item) return;
@@ -184,81 +185,72 @@ export default function NfcQueuePage() {
 
     try {
       setErrorMessage("");
-      // Stop any background scan to release NFC antenna
+      // Stop any existing NFC session
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
       setIsScanningActive(false);
 
-      setStepStatus("writing_ndef");
-      setStatusMessage("📡 Dekatkan HP ke cip NFC sekarang... (Menunggu sentuhan)");
-
       const NDEFReaderClass = (window as any).NDEFReader;
-      const writer = new NDEFReaderClass();
+      const ndef = new NDEFReaderClass();
+      abortControllerRef.current = new AbortController();
 
-      // Directly write NDEF record.
-      // This formats unformatted/blank tags and writes the hash!
-      await writer.write(
-        {
-          records: [
+      setStepStatus("ready_to_tap");
+      setStatusMessage("📡 Dekatkan HP ke cip NFC sekarang... Tempelkan cip di belakang HP hingga proses selesai.");
+
+      await ndef.scan({ signal: abortControllerRef.current.signal });
+
+      ndef.onreading = async (event: any) => {
+        // Abort scan listener immediately so it doesn't trigger multiple times
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+          abortControllerRef.current = null;
+        }
+
+        const hardwareUid = event.serialNumber;
+        if (!hardwareUid) {
+          playErrorBeep();
+          setStepStatus("error");
+          setErrorMessage("Gagal mendeteksi UID fisik (serialNumber) dari cip NFC. Pastikan cip NFC bertipe ISO 14443 Type A (seperti NTAG213/215/216).");
+          return;
+        }
+
+        try {
+          // 1. Write product hash to NDEF memory
+          setStepStatus("writing_ndef");
+          setStatusMessage(`UID fisik terdeteksi (${hardwareUid}). Sedang menulis hash ke cip NFC...`);
+
+          const writer = new NDEFReaderClass();
+          await writer.write(
             {
-              recordType: "text",
-              data: item.hash_blockchain,
+              records: [
+                {
+                  recordType: "text",
+                  data: item.hash_blockchain,
+                },
+              ],
             },
-          ],
-        },
-        { overwrite: true }
-      );
+            { overwrite: true }
+          );
 
-      playSuccessBeep();
-      if (typeof navigator !== "undefined" && navigator.vibrate) {
-        navigator.vibrate(100);
-      }
+          // 2. Send real hardware UID to backend binding API
+          await processBinding(hardwareUid, item, true);
+        } catch (writeErr: any) {
+          console.error("Gagal menulis NDEF:", writeErr);
+          playErrorBeep();
+          setStepStatus("error");
+          setErrorMessage("Gagal menulis hash ke cip: " + (writeErr.message || "Cip terlepas terlalu cepat. Coba tempelkan kembali dengan stabil."));
+        }
+      };
 
-      setStatusMessage("✓ Hash berhasil ditulis ke cip! Membaca UID fisik...");
-      setStepStatus("binding_server");
-
-      // Attempt to read hardware UID from the newly formatted tag
-      let hardwareUid = "";
-      try {
-        const reader = new NDEFReaderClass();
-        const scanAbort = new AbortController();
-        const timeout = setTimeout(() => {
-          scanAbort.abort();
-        }, 3500);
-
-        await reader.scan({ signal: scanAbort.signal });
-
-        const uidPromise = new Promise<string>((resolve) => {
-          reader.onreading = (event: any) => {
-            clearTimeout(timeout);
-            scanAbort.abort();
-            resolve(event.serialNumber || "");
-          };
-          reader.onreadingerror = () => {
-            clearTimeout(timeout);
-            scanAbort.abort();
-            resolve("");
-          };
-          scanAbort.signal.addEventListener("abort", () => {
-            resolve("");
-          });
-        });
-
-        hardwareUid = await uidPromise;
-      } catch (scanErr) {
-        console.warn("Could not immediately read UID after write:", scanErr);
-      }
-
-      // If Android masked the UID or user pulled away quickly, generate consistent UID
-      if (!hardwareUid) {
-        hardwareUid = `04:${item.hash_blockchain.substring(2, 4)}:${item.hash_blockchain.substring(4, 6)}:${item.hash_blockchain.substring(6, 8)}:${item.hash_blockchain.substring(8, 10)}:${item.hash_blockchain.substring(10, 12)}:${item.hash_blockchain.substring(12, 14)}`;
-      }
-
-      await processBinding(hardwareUid, item);
+      ndef.onreadingerror = () => {
+        playErrorBeep();
+        setStepStatus("error");
+        setErrorMessage("Cip NFC terdeteksi tetapi gagal dibaca. Pastikan cip tidak rusak atau terkunci.");
+      };
     } catch (err: any) {
-      console.error("Gagal menulis ke NFC:", err);
+      console.error("Gagal memulai NFC:", err);
       playErrorBeep();
       setStepStatus("error");
       if (err.name === "NotAllowedError") {
@@ -266,7 +258,7 @@ export default function NfcQueuePage() {
       } else if (err.name === "NotSupportedError") {
         setErrorMessage("Tipe cip NFC ini tidak didukung oleh browser Web NFC.");
       } else {
-        setErrorMessage("Gagal menulis ke cip: " + (err.message || "Pastikan cip ditempelkan dengan stabil di belakang HP."));
+        setErrorMessage("Gagal memulai NFC: " + (err.message || "Pastikan NFC aktif pada pengaturan Android."));
       }
     }
   };
@@ -301,12 +293,18 @@ export default function NfcQueuePage() {
           abortControllerRef.current = null;
         }
 
-        const hardwareUid = event.serialNumber || `04:${item.hash_blockchain.substring(2, 4)}:${item.hash_blockchain.substring(4, 6)}:${item.hash_blockchain.substring(6, 8)}:${item.hash_blockchain.substring(8, 10)}:${item.hash_blockchain.substring(10, 12)}:${item.hash_blockchain.substring(12, 14)}`;
+        const hardwareUid = event.serialNumber;
+        if (!hardwareUid) {
+          playErrorBeep();
+          setStepStatus("error");
+          setErrorMessage("Gagal membaca UID fisik cip NFC (serialNumber kosong).");
+          return;
+        }
 
         try {
           // 1. Write product hash to NDEF memory
           setStepStatus("writing_ndef");
-          setStatusMessage(`Menulis hash digital ke memori cip NFC (${hardwareUid})...`);
+          setStatusMessage(`UID terdeteksi (${hardwareUid}). Menulis hash digital ke memori cip NFC...`);
 
           const writer = new NDEFReaderClass();
           await writer.write(
@@ -321,8 +319,8 @@ export default function NfcQueuePage() {
             { overwrite: true }
           );
 
-          // 2. Send to backend binding API
-          await processBinding(hardwareUid, item);
+          // 2. Send to backend binding API with real hardware UID
+          await processBinding(hardwareUid, item, true);
 
           // Resume scan session for next item
           setTimeout(() => {
@@ -341,7 +339,7 @@ export default function NfcQueuePage() {
       ndef.onreadingerror = () => {
         playErrorBeep();
         setStepStatus("error");
-        setErrorMessage("Gagal membaca tag NFC. Jika cip masih baru/kosongan, gunakan tombol 'Tulis Langsung ke Cip'.");
+        setErrorMessage("Gagal membaca tag NFC. Pastikan cip NFC ditempelkan dengan stabil.");
       };
     } catch (err: any) {
       console.error("Error memulai sesi NFC:", err);
@@ -709,6 +707,8 @@ export default function NfcQueuePage() {
                       ? "Sedang Menulis ke Cip..."
                       : stepStatus === "binding_server"
                       ? "Menyimpan ke Database..."
+                      : stepStatus === "ready_to_tap"
+                      ? "📡 Tempelkan Cip NFC Sekarang..."
                       : `Tulis Hash ke Cip NFC (Baju ${currentIndex + 1})`}
                   </span>
                 </button>

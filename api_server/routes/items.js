@@ -379,7 +379,7 @@ router.post('/:uuid/verify', async (req, res, next) => {
  */
 router.post('/bind-nfc', async (req, res, next) => {
   try {
-    const { hash, uid_fisik } = req.body;
+    const { hash, uid_fisik, overwrite } = req.body;
 
     if (!hash || !uid_fisik) {
       return res.status(400).json({
@@ -417,10 +417,10 @@ router.post('/bind-nfc', async (req, res, next) => {
     }
 
     // 2. Check if already bound or incorrect status
-    if (item.status === 'minted' || item.status === 'sold') {
+    if ((item.status === 'minted' || item.status === 'sold') && !overwrite) {
       return res.status(400).json({
         success: false,
-        message: `Item ini sudah diikat ke cip NFC sebelumnya (Status: ${item.status}).`,
+        message: `Item ini sudah diikat ke cip NFC sebelumnya (Status: ${item.status}). Gunakan opsi overwrite jika ingin memperbarui.`,
         already_bound: true,
         data: {
           id_item: item.id_item,
@@ -430,7 +430,7 @@ router.post('/bind-nfc', async (req, res, next) => {
       });
     }
 
-    if (item.status !== 'waiting_nfc') {
+    if (item.status !== 'waiting_nfc' && !overwrite) {
       return res.status(400).json({
         success: false,
         message: `Status item saat ini adalah '${item.status}'. Item harus berstatus 'waiting_nfc' untuk diikat ke cip NFC.`,
@@ -489,6 +489,73 @@ router.post('/bind-nfc', async (req, res, next) => {
         hash_blockchain: item.hash_blockchain,
         uid_fisik: rawUid,
         status: 'minted',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/items/reset-nfc
+ * Reset an item's status back to 'waiting_nfc' and clear uid_fisik
+ * Payload: { id_item } or { hash }
+ */
+router.post('/reset-nfc', async (req, res, next) => {
+  try {
+    const { id_item, hash } = req.body;
+    const where = {};
+    if (id_item) {
+      where.id_item = id_item;
+    } else if (hash) {
+      where.hash_blockchain = { equals: String(hash).trim().toLowerCase(), mode: 'insensitive' };
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Parameter "id_item" atau "hash" wajib disertakan.',
+      });
+    }
+
+    const item = await prisma.productItem.findFirst({
+      where,
+      include: {
+        produk_master: true,
+      },
+    });
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: 'Item tidak ditemukan.',
+      });
+    }
+
+    await prisma.$transaction([
+      prisma.productItem.update({
+        where: { id_item: item.id_item },
+        data: {
+          uid_fisik: null,
+          status: 'waiting_nfc',
+        },
+      }),
+      prisma.systemLog.create({
+        data: {
+          action: 'NFC_RESET',
+          detail: {
+            id_item: item.id_item,
+            previous_uid: item.uid_fisik,
+            status: 'waiting_nfc',
+          },
+        },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      message: `Item "${item.produk_master?.nama_produk || item.id_item}" berhasil di-reset ke status 'waiting_nfc'.`,
+      data: {
+        id_item: item.id_item,
+        status: 'waiting_nfc',
       },
     });
   } catch (error) {
