@@ -70,11 +70,19 @@ class _VerificationResultScreenState extends State<VerificationResultScreen> {
         itemDetail = await provider.getItemDetails(verifyResult!.product!.idItem);
       }
 
+      final String? foundUuid = (verifyResult?.product?.idItem != null && verifyResult!.product!.idItem.trim().isNotEmpty)
+          ? verifyResult.product!.idItem.trim()
+          : (itemDetail?.idItem != null && itemDetail!.idItem.trim().isNotEmpty)
+              ? itemDetail.idItem.trim()
+              : null;
+
       setState(() {
         _isLoading = false;
         _result = verifyResult;
         _itemDetails = itemDetail;
-        _uuid = verifyResult?.product?.idItem ?? itemDetail?.idItem ?? _uuid;
+        if (foundUuid != null) {
+          _uuid = foundUuid;
+        }
         if (verifyResult == null) {
           _error = 'Gagal melakukan verifikasi NFC dengan server.';
         }
@@ -362,12 +370,12 @@ class _VerificationResultScreenState extends State<VerificationResultScreen> {
                   ),
                 ),
 
-                if ((_uuid ?? product?.idItem ?? item?.idItem) != null) ...[
+                if (_getEffectiveUuid() != null) ...[
                   const SizedBox(height: 14),
                   Text('PRODUCT UUID', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.colors(context).mutedForeground, letterSpacing: 0.5)),
                   const SizedBox(height: 4),
                   Text(
-                    (_uuid ?? product?.idItem ?? item?.idItem)!,
+                    _getEffectiveUuid()!,
                     style: TextStyle(fontSize: 11, fontFamily: 'RobotoMono', color: AppTheme.colors(context).foreground),
                   ),
                 ],
@@ -473,7 +481,7 @@ class _VerificationResultScreenState extends State<VerificationResultScreen> {
                       context,
                       '/claim',
                       arguments: {
-                        'uuid': _uuid ?? product?.idItem ?? item?.idItem,
+                        'uuid': _getEffectiveUuid(),
                         'product_name': product?.namaProduk ?? item?.namaProduk ?? 'Unknown',
                         'token_id': blockchain?.tokenId,
                         'gambar_url': item?.gambarUrl,
@@ -491,7 +499,7 @@ class _VerificationResultScreenState extends State<VerificationResultScreen> {
                       context,
                       '/transfer',
                       arguments: {
-                        'uuid': _uuid ?? product?.idItem ?? item?.idItem,
+                        'uuid': _getEffectiveUuid(),
                         'product_name': product?.namaProduk ?? item?.namaProduk ?? 'Unknown',
                         'from_wallet': provider.walletAddress,
                         'gambar_url': item?.gambarUrl,
@@ -549,6 +557,17 @@ class _VerificationResultScreenState extends State<VerificationResultScreen> {
   }
 
   // ─── Helpers ───
+
+  String? _getEffectiveUuid() {
+    if (_uuid != null && _uuid!.trim().isNotEmpty) return _uuid!.trim();
+    if (_result?.product?.idItem != null && _result!.product!.idItem.trim().isNotEmpty) {
+      return _result!.product!.idItem.trim();
+    }
+    if (_itemDetails?.idItem != null && _itemDetails!.idItem.trim().isNotEmpty) {
+      return _itemDetails!.idItem.trim();
+    }
+    return null;
+  }
 
   String _formatPrice(double price) {
     if (price == 0) return '—';

@@ -7,12 +7,15 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../services/wallet_service.dart';
 import '../models/ownership.dart';
 import '../models/product_item.dart';
 
 class AppProvider extends ChangeNotifier {
+  static const String _themeKey = 'luxchain_is_dark_mode';
+
   final ApiService _api = ApiService();
   final WalletService _wallet = WalletService();
 
@@ -23,7 +26,26 @@ class AppProvider extends ChangeNotifier {
   OwnershipResponse? _ownership;
   bool _isLoading = false;
   String? _error;
-  ThemeMode _themeMode = ThemeMode.light;
+  ThemeMode _themeMode;
+
+  AppProvider({ThemeMode initialThemeMode = ThemeMode.light})
+      : _themeMode = initialThemeMode {
+    _loadThemeMode();
+  }
+
+  Future<void> _loadThemeMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isDark = prefs.getBool(_themeKey);
+      if (isDark != null) {
+        final loadedMode = isDark ? ThemeMode.dark : ThemeMode.light;
+        if (_themeMode != loadedMode) {
+          _themeMode = loadedMode;
+          notifyListeners();
+        }
+      }
+    } catch (_) {}
+  }
 
   // ─── Getters ───
   String? get walletAddress => _walletAddress;
@@ -46,9 +68,13 @@ class AppProvider extends ChangeNotifier {
   // ═════════════════════════════════════════════════════════════
   //  THEME & UI
   // ═════════════════════════════════════════════════════════════
-  void toggleTheme() {
+  Future<void> toggleTheme() async {
     _themeMode = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
     notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_themeKey, _themeMode == ThemeMode.dark);
+    } catch (_) {}
   }
 
   // ═════════════════════════════════════════════════════════════

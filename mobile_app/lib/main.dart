@@ -12,26 +12,31 @@ import 'screens/claim_screen.dart';
 import 'screens/transfer_screen.dart';
 import 'screens/tx_success_screen.dart';
 import 'screens/profile_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/transaction_processing_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final isDark = prefs.getBool('luxchain_is_dark_mode') ?? false;
+
   SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
+    SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
+      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
     ),
   );
-  runApp(const LuxchainApp());
+  runApp(LuxchainApp(initialThemeMode: isDark ? ThemeMode.dark : ThemeMode.light));
 }
 
 class LuxchainApp extends StatelessWidget {
-  const LuxchainApp({super.key});
+  final ThemeMode initialThemeMode;
+  const LuxchainApp({super.key, this.initialThemeMode = ThemeMode.light});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => AppProvider(),
+      create: (_) => AppProvider(initialThemeMode: initialThemeMode),
       child: Consumer<AppProvider>(
         builder: (context, provider, child) {
           // Dynamically adjust status bar icon/brightness matching the theme mode
