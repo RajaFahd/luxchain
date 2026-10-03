@@ -74,6 +74,7 @@ class _VerificationResultScreenState extends State<VerificationResultScreen> {
         _isLoading = false;
         _result = verifyResult;
         _itemDetails = itemDetail;
+        _uuid = verifyResult?.product?.idItem ?? itemDetail?.idItem ?? _uuid;
         if (verifyResult == null) {
           _error = 'Gagal melakukan verifikasi NFC dengan server.';
         }
@@ -354,19 +355,19 @@ class _VerificationResultScreenState extends State<VerificationResultScreen> {
                         children: [
                           _metaCell('HARGA', 'Rp ${_formatPrice(product?.harga ?? item?.harga ?? 0)}'),
                           _metaCell('PRODUKSI', _formatDateShort(product?.tanggalProduksi ?? item?.tanggalProduksi)),
-                          _metaCell('HASH', hashes?.match == true ? '✓ Match' : '✗ Mismatch'),
+                          _metaCell('HASH', (hashes?.match == true || (verified && hashes == null)) ? '✓ Match' : (hashes?.match == false ? '✗ Mismatch' : (verified ? '✓ Match' : '✗ Mismatch'))),
                         ],
                       ),
                     ],
                   ),
                 ),
 
-                if (_uuid != null) ...[
+                if ((_uuid ?? product?.idItem ?? item?.idItem) != null) ...[
                   const SizedBox(height: 14),
                   Text('PRODUCT UUID', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.colors(context).mutedForeground, letterSpacing: 0.5)),
                   const SizedBox(height: 4),
                   Text(
-                    _uuid!,
+                    (_uuid ?? product?.idItem ?? item?.idItem)!,
                     style: TextStyle(fontSize: 11, fontFamily: 'RobotoMono', color: AppTheme.colors(context).foreground),
                   ),
                 ],
@@ -472,7 +473,7 @@ class _VerificationResultScreenState extends State<VerificationResultScreen> {
                       context,
                       '/claim',
                       arguments: {
-                        'uuid': _uuid,
+                        'uuid': _uuid ?? product?.idItem ?? item?.idItem,
                         'product_name': product?.namaProduk ?? item?.namaProduk ?? 'Unknown',
                         'token_id': blockchain?.tokenId,
                         'gambar_url': item?.gambarUrl,
@@ -490,7 +491,7 @@ class _VerificationResultScreenState extends State<VerificationResultScreen> {
                       context,
                       '/transfer',
                       arguments: {
-                        'uuid': _uuid,
+                        'uuid': _uuid ?? product?.idItem ?? item?.idItem,
                         'product_name': product?.namaProduk ?? item?.namaProduk ?? 'Unknown',
                         'from_wallet': provider.walletAddress,
                         'gambar_url': item?.gambarUrl,

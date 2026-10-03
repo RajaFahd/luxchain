@@ -738,6 +738,12 @@ router.post('/verify-nfc', async (req, res, next) => {
           hardware_matched: true,
           anti_clone_passed: true,
         },
+        hashes: {
+          stored_hash: item.hash_blockchain,
+          recomputed_hash: cleanHash,
+          on_chain_hash: blockchainData ? blockchainData.metadataHash : null,
+          match: isAuthentic,
+        },
         blockchain: blockchainData,
         currentOwner: currentOwnerObj,
         ownershipHistory,
